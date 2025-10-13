@@ -1,0 +1,1357 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cultivos de Cabanillas - Simulador Agrícola</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            background: #1a1a1a;
+        }
+
+        /* Botón de Tienda */
+        .shop-button {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            width: 80px;
+            height: 80px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            z-index: 100;
+        }
+
+        .shop-button:hover {
+            background: rgba(0, 0, 0, 0.95);
+            transform: scale(1.05);
+        }
+
+        /* Mensaje Superior */
+        .top-message {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.85);
+            color: white;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            z-index: 90;
+            max-width: 700px;
+            text-align: center;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+
+        /* Contenedor del mapa */
+        #mapContainer {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+            cursor: crosshair;
+        }
+
+        #mapContainer.planting-mode {
+            cursor: crosshair;
+        }
+
+        #mapContainer.normal-mode {
+            cursor: default;
+        }
+
+        /* Imagen del mapa de fondo */
+        #mapImage {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background: #2d5a3d;
+        }
+
+        /* Canvas oculto para detección de zonas */
+        #zoneCanvas {
+            display: none;
+        }
+
+        /* Parcela de cultivo en el mapa */
+        .map-plot {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            background: rgba(139, 115, 85, 0.9);
+            border: 3px solid #6d5a45;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            transform: translate(-50%, -50%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 35px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .map-plot:hover {
+            filter: brightness(1.2);
+            transform: translate(-50%, -50%) scale(1.1);
+        }
+
+        .map-plot.planted {
+            background: rgba(107, 89, 64, 0.95);
+            border-color: #8b7355;
+        }
+
+        .map-plot.ready {
+            animation: readyPulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes readyPulse {
+            0%, 100% { 
+                box-shadow: 0 0 0 0 rgba(0, 200, 0, 0.7);
+                border-color: #00ff00;
+            }
+            50% { 
+                box-shadow: 0 0 0 15px rgba(0, 200, 0, 0);
+                border-color: #66ff66;
+            }
+        }
+
+        /* Icono de cultivo dentro de la parcela */
+        .crop-icon-display {
+            font-size: 35px;
+            animation: growIn 0.5s ease;
+        }
+
+        @keyframes growIn {
+            from {
+                transform: scale(0);
+                opacity: 0;
+            }
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        /* Etiqueta de estado sobre la parcela */
+        .plot-label {
+            position: absolute;
+            top: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            white-space: nowrap;
+            pointer-events: none;
+        }
+
+        .plot-label.ready-label {
+            background: rgba(0, 200, 0, 0.9);
+            font-weight: bold;
+            animation: bounce 1s ease infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateX(-50%) translateY(0); }
+            50% { transform: translateX(-50%) translateY(-5px); }
+        }
+
+        /* Barra de progreso sobre la parcela */
+        .plot-progress {
+            position: absolute;
+            bottom: -8px;
+            left: 5px;
+            right: 5px;
+            height: 6px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .plot-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4fb3d4, #66ff66);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        /* Modal de Tienda */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .modal-content {
+            background: #2a2a2a;
+            width: 90%;
+            max-width: 800px;
+            max-height: 90vh;
+            border-radius: 12px;
+            overflow: hidden;
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            background: #1a1a1a;
+            padding: 15px 20px;
+            align-items: center;
+            position: relative;
+        }
+
+        .tab-button {
+            flex: 1;
+            padding: 12px 20px;
+            background: transparent;
+            color: #888;
+            border: none;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .tab-button.active {
+            color: white;
+            background: #333;
+            border-radius: 8px;
+        }
+
+        .tab-button:hover {
+            color: white;
+        }
+
+        .close-button {
+            position: absolute;
+            right: 20px;
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 32px;
+            cursor: pointer;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .close-button:hover {
+            color: #ff4444;
+            transform: rotate(90deg);
+        }
+
+        .tab-content {
+            display: none;
+            padding: 40px;
+            min-height: 400px;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .crops-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 30px;
+        }
+
+        .crop-item {
+            background: #333;
+            padding: 30px 20px;
+            border-radius: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 3px solid transparent;
+        }
+
+        .crop-item:hover {
+            background: #444;
+            transform: translateY(-5px);
+            border-color: #4fb3d4;
+        }
+
+        .crop-item.selected {
+            border-color: #4fb3d4;
+            box-shadow: 0 0 20px rgba(79, 179, 212, 0.5);
+        }
+
+        .crop-icon {
+            font-size: 64px;
+            margin-bottom: 15px;
+        }
+
+        .crop-item h3 {
+            color: white;
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+
+        .crop-cost {
+            color: white;
+            font-size: 16px;
+        }
+
+        .crop-cost.cost-multiple {
+            color: #ff6666;
+        }
+
+        .crop-item.affordable .crop-cost {
+            color: #66ff66;
+        }
+
+        .upgrades-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 30px;
+        }
+
+        .upgrade-item {
+            background: #333;
+            padding: 30px 20px;
+            border-radius: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 3px solid transparent;
+        }
+
+        .upgrade-item:hover {
+            background: #444;
+            transform: translateY(-5px);
+            border-color: #4fb3d4;
+        }
+
+        .upgrade-item.purchased {
+            opacity: 0.5;
+            cursor: not-allowed;
+            border-color: #666;
+        }
+
+        .upgrade-icon {
+            font-size: 64px;
+            margin-bottom: 15px;
+        }
+
+        .upgrade-item h3 {
+            color: white;
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+
+        .upgrade-cost {
+            color: #ff6666;
+            font-size: 16px;
+        }
+
+        .upgrade-item.affordable .upgrade-cost {
+            color: #66ff66;
+        }
+
+        .settings-content {
+            color: white;
+        }
+
+        .settings-content h3 {
+            margin-bottom: 30px;
+            font-size: 24px;
+        }
+
+        .setting-item {
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px;
+            background: #333;
+            border-radius: 8px;
+        }
+
+        .setting-item label {
+            font-size: 18px;
+        }
+
+        .setting-item select,
+        .setting-item input[type="checkbox"] {
+            padding: 8px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        .cancel-button {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #cc0000;
+            color: white;
+            border: none;
+            padding: 20px 40px;
+            font-size: 20px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            z-index: 100;
+            transition: all 0.3s ease;
+            animation: pulse 2s infinite;
+        }
+
+        .cancel-button:hover {
+            background: #ff0000;
+            transform: scale(1.05);
+        }
+
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); }
+            50% { box-shadow: 0 0 0 15px rgba(255, 0, 0, 0); }
+        }
+
+        .resources-counter {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.85);
+            color: white;
+            padding: 20px 30px;
+            border-radius: 8px;
+            font-size: 18px;
+            display: flex;
+            gap: 30px;
+            z-index: 100;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .resources-counter strong {
+            color: #66ff66;
+            font-size: 22px;
+        }
+
+        /* Panel de información lateral */
+        .info-panel {
+            position: fixed;
+            right: 20px;
+            bottom: 20px;
+            width: 300px;
+            background: rgba(0, 0, 0, 0.9);
+            border-radius: 12px;
+            padding: 20px;
+            color: white;
+            z-index: 80;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .info-panel h3 {
+            margin-bottom: 10px;
+            color: #4fb3d4;
+        }
+
+        .info-panel p {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+
+        /* Indicador de zona válida */
+        .zone-indicator {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 200, 0, 0.9);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            z-index: 90;
+            display: none;
+        }
+
+        .zone-indicator.invalid {
+            background: rgba(200, 0, 0, 0.9);
+        }
+
+        @media (max-width: 768px) {
+            .crops-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .upgrades-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <button class="shop-button" id="shopButton">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
+            <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
+        </svg>
+    </button>
+
+    <div class="top-message" id="topMessage">
+        Haz clic en el botón de tienda para comprar cultivos y comenzar a cultivar en las zonas marcadas del mapa.
+    </div>
+
+    <!-- Contenedor del mapa -->
+    <div id="mapContainer" class="normal-mode">
+        <img id="mapImage" src="/mnt/user-data/uploads/Fondo.jpg" alt="Mapa de Cabanillas">
+        <!-- Las parcelas se añadirán aquí dinámicamente -->
+    </div>
+
+    <!-- Canvas oculto para detectar zonas azules -->
+    <canvas id="zoneCanvas"></canvas>
+
+    <!-- Indicador de zona válida/inválida -->
+    <div class="zone-indicator" id="zoneIndicator">Zona válida para cultivo</div>
+
+    <!-- Modal de Tienda -->
+    <div class="modal" id="shopModal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button class="tab-button active" data-tab="crops">Cultivos</button>
+                <button class="tab-button" data-tab="upgrades">Mejoras</button>
+                <button class="tab-button" data-tab="settings">Configuración</button>
+                <button class="close-button" id="closeModal">✕</button>
+            </div>
+            
+            <div class="tab-content active" id="cropsTab">
+                <div class="crops-grid">
+                    <div class="crop-item" data-crop="wheat">
+                        <div class="crop-icon">🌾</div>
+                        <h3>Trigo</h3>
+                        <p class="crop-cost">1 semilla</p>
+                    </div>
+                    <div class="crop-item" data-crop="corn">
+                        <div class="crop-icon">🌽</div>
+                        <h3>Maíz</h3>
+                        <p class="crop-cost cost-multiple">2 semillas, 1 moneda</p>
+                    </div>
+                    <div class="crop-item" data-crop="potato">
+                        <div class="crop-icon">🥔</div>
+                        <h3>Patata</h3>
+                        <p class="crop-cost cost-multiple">2 semillas, 1 moneda</p>
+                    </div>
+                    <div class="crop-item" data-crop="tomato">
+                        <div class="crop-icon">🍅</div>
+                        <h3>Tomate</h3>
+                        <p class="crop-cost cost-multiple">3 semillas, 25 monedas</p>
+                    </div>
+                    <div class="crop-item" data-crop="strawberry">
+                        <div class="crop-icon">🍓</div>
+                        <h3>Fresa</h3>
+                        <p class="crop-cost cost-multiple">3 semillas, 25 monedas</p>
+                    </div>
+                    <div class="crop-item" data-crop="pumpkin">
+                        <div class="crop-icon">🎃</div>
+                        <h3>Calabaza</h3>
+                        <p class="crop-cost cost-multiple">4 semillas, 50 monedas</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="tab-content" id="upgradesTab">
+                <div class="upgrades-grid">
+                    <div class="upgrade-item" data-upgrade="sickle">
+                        <div class="upgrade-icon">🔪</div>
+                        <h3>Hoz</h3>
+                        <p class="upgrade-cost">5 monedas</p>
+                    </div>
+                    <div class="upgrade-item" data-upgrade="watering">
+                        <div class="upgrade-icon">💧</div>
+                        <h3>Regadera</h3>
+                        <p class="upgrade-cost">10 monedas</p>
+                    </div>
+                    <div class="upgrade-item" data-upgrade="fertilizer">
+                        <div class="upgrade-icon">🌱</div>
+                        <h3>Fertilizante</h3>
+                        <p class="upgrade-cost">15 monedas</p>
+                    </div>
+                    <div class="upgrade-item" data-upgrade="tractor">
+                        <div class="upgrade-icon">🚜</div>
+                        <h3>Tractor</h3>
+                        <p class="upgrade-cost">50 monedas</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="tab-content" id="settingsTab">
+                <div class="settings-content">
+                    <h3>Configuración del Juego</h3>
+                    <div class="setting-item">
+                        <label>Velocidad de crecimiento:</label>
+                        <select id="growthSpeed">
+                            <option value="1">Normal</option>
+                            <option value="0.5">Lenta</option>
+                            <option value="2">Rápida</option>
+                        </select>
+                    </div>
+                    <div class="setting-item">
+                        <label>Mostrar barra de progreso:</label>
+                        <input type="checkbox" id="showProgress" checked>
+                    </div>
+                    <div class="setting-item">
+                        <label>Sonido:</label>
+                        <input type="checkbox" id="soundToggle" checked>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <button class="cancel-button" id="cancelButton" style="display: none;">
+        ✕ Cancelar ✕
+    </button>
+
+    <div class="resources-counter">
+        <span>Semillas: <strong id="seedsCount">5</strong></span>
+        <span>Monedas: <strong id="coinsCount">0</strong></span>
+        <span>Parcelas: <strong id="plotsCount">0</strong></span>
+    </div>
+
+    <div class="info-panel" id="infoPanel" style="display: none;">
+        <h3>Información</h3>
+        <p id="infoPanelText">Selecciona una parcela para ver su información.</p>
+    </div>
+
+    <script>
+        // Configuración del juego
+        const GAME_CONFIG = {
+            crops: {
+                wheat: {
+                    name: 'Trigo',
+                    icon: '🌾',
+                    seedCost: 1,
+                    coinCost: 0,
+                    growthTime: 15000,
+                    seedReward: 2,
+                    coinReward: 0
+                },
+                corn: {
+                    name: 'Maíz',
+                    icon: '🌽',
+                    seedCost: 2,
+                    coinCost: 1,
+                    growthTime: 20000,
+                    seedReward: 3,
+                    coinReward: 1
+                },
+                potato: {
+                    name: 'Patata',
+                    icon: '🥔',
+                    seedCost: 2,
+                    coinCost: 1,
+                    growthTime: 18000,
+                    seedReward: 3,
+                    coinReward: 1
+                },
+                tomato: {
+                    name: 'Tomate',
+                    icon: '🍅',
+                    seedCost: 3,
+                    coinCost: 25,
+                    growthTime: 30000,
+                    seedReward: 5,
+                    coinReward: 30
+                },
+                strawberry: {
+                    name: 'Fresa',
+                    icon: '🍓',
+                    seedCost: 3,
+                    coinCost: 25,
+                    growthTime: 28000,
+                    seedReward: 5,
+                    coinReward: 30
+                },
+                pumpkin: {
+                    name: 'Calabaza',
+                    icon: '🎃',
+                    seedCost: 4,
+                    coinCost: 50,
+                    growthTime: 40000,
+                    seedReward: 8,
+                    coinReward: 60
+                }
+            },
+            upgrades: {
+                sickle: {
+                    name: 'Hoz',
+                    icon: '🔪',
+                    cost: 5,
+                    description: 'Cosecha más rápido'
+                },
+                watering: {
+                    name: 'Regadera',
+                    icon: '💧',
+                    cost: 10,
+                    description: 'Acelera el crecimiento un 30%'
+                },
+                fertilizer: {
+                    name: 'Fertilizante',
+                    icon: '🌱',
+                    cost: 15,
+                    description: 'Aumenta las recompensas un 50%'
+                },
+                tractor: {
+                    name: 'Tractor',
+                    icon: '🚜',
+                    cost: 50,
+                    description: 'Permite plantar múltiples parcelas'
+                }
+            }
+        };
+
+        // Estado del juego
+        const gameState = {
+            seeds: 5,
+            coins: 0,
+            plots: [],
+            selectedCrop: null,
+            plantingMode: false,
+            upgrades: {
+                sickle: false,
+                watering: false,
+                fertilizer: false,
+                tractor: false
+            },
+            growthSpeedMultiplier: 1,
+            showProgress: true,
+            nextPlotId: 0
+        };
+
+        // Variables para detección de zonas
+        let zoneCanvas, zoneCtx;
+        let zoneImageData = null;
+        let mapScale = 1;
+        let mapOffsetX = 0;
+        let mapOffsetY = 0;
+
+        // Inicialización
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeZoneDetection();
+            setupEventListeners();
+            updateResourceDisplay();
+            loadGameState();
+        });
+
+        // Inicializar canvas de detección de zonas
+        function initializeZoneDetection() {
+            const zoneImage = new Image();
+            zoneImage.src = '/mnt/user-data/uploads/ZonasCultivo_Azul.png';
+            
+            zoneImage.onload = () => {
+                zoneCanvas = document.getElementById('zoneCanvas');
+                zoneCtx = zoneCanvas.getContext('2d');
+                
+                zoneCanvas.width = zoneImage.width;
+                zoneCanvas.height = zoneImage.height;
+                
+                zoneCtx.drawImage(zoneImage, 0, 0);
+                zoneImageData = zoneCtx.getImageData(0, 0, zoneCanvas.width, zoneCanvas.height);
+                
+                console.log('✅ Sistema de detección de zonas inicializado');
+                calculateMapScale();
+            };
+
+            // Recalcular escala cuando cambie el tamaño de la ventana
+            window.addEventListener('resize', calculateMapScale);
+        }
+
+        // Calcular la escala del mapa
+        function calculateMapScale() {
+            const mapImage = document.getElementById('mapImage');
+            const container = document.getElementById('mapContainer');
+            
+            const imageRect = mapImage.getBoundingClientRect();
+            const containerRect = container.getBoundingClientRect();
+            
+            // Calcular la escala entre la imagen renderizada y el canvas de zonas
+            mapScale = zoneCanvas.width / imageRect.width;
+            mapOffsetX = imageRect.left - containerRect.left;
+            mapOffsetY = imageRect.top - containerRect.top;
+        }
+
+        // Verificar si un punto está en zona azul
+        function isInBlueZone(x, y) {
+            if (!zoneImageData) return false;
+            
+            // Convertir coordenadas de pantalla a coordenadas de imagen
+            const imageX = Math.floor((x - mapOffsetX) * mapScale);
+            const imageY = Math.floor((y - mapOffsetY) * mapScale);
+            
+            // Verificar límites
+            if (imageX < 0 || imageX >= zoneCanvas.width || imageY < 0 || imageY >= zoneCanvas.height) {
+                return false;
+            }
+            
+            // Obtener el píxel
+            const index = (imageY * zoneCanvas.width + imageX) * 4;
+            const r = zoneImageData.data[index];
+            const g = zoneImageData.data[index + 1];
+            const b = zoneImageData.data[index + 2];
+            const a = zoneImageData.data[index + 3];
+            
+            // Verificar si es azul (valores aproximados)
+            return (b > 150 && r < 100 && g < 150 && a > 200);
+        }
+
+        // Event listeners
+        function setupEventListeners() {
+            document.getElementById('shopButton').addEventListener('click', openShop);
+            document.getElementById('closeModal').addEventListener('click', closeShop);
+            
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const tab = e.target.dataset.tab;
+                    switchTab(tab);
+                });
+            });
+            
+            document.querySelectorAll('.crop-item').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    const cropType = e.currentTarget.dataset.crop;
+                    selectCrop(cropType);
+                });
+            });
+            
+            document.querySelectorAll('.upgrade-item').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    const upgradeType = e.currentTarget.dataset.upgrade;
+                    purchaseUpgrade(upgradeType);
+                });
+            });
+            
+            document.getElementById('cancelButton').addEventListener('click', cancelPlanting);
+            
+            document.getElementById('growthSpeed').addEventListener('change', (e) => {
+                gameState.growthSpeedMultiplier = parseFloat(e.target.value);
+            });
+            
+            document.getElementById('showProgress').addEventListener('change', (e) => {
+                gameState.showProgress = e.target.checked;
+                updateAllProgressBars();
+            });
+            
+            document.getElementById('shopModal').addEventListener('click', (e) => {
+                if (e.target.id === 'shopModal') {
+                    closeShop();
+                }
+            });
+            
+            // Click en el mapa para plantar
+            const mapContainer = document.getElementById('mapContainer');
+            mapContainer.addEventListener('click', handleMapClick);
+            
+            // Hover sobre el mapa para mostrar indicador
+            mapContainer.addEventListener('mousemove', handleMapHover);
+            mapContainer.addEventListener('mouseleave', () => {
+                document.getElementById('zoneIndicator').style.display = 'none';
+            });
+        }
+
+        // Manejar click en el mapa
+        function handleMapClick(e) {
+            if (!gameState.plantingMode) return;
+            
+            const x = e.clientX;
+            const y = e.clientY;
+            
+            if (isInBlueZone(x, y)) {
+                plantCropAt(x, y);
+            } else {
+                updateTopMessage('❌ Esa zona no es válida para cultivo. Busca las áreas marcadas en el mapa.');
+            }
+        }
+
+        // Manejar hover sobre el mapa
+        function handleMapHover(e) {
+            if (!gameState.plantingMode) return;
+            
+            const x = e.clientX;
+            const y = e.clientY;
+            
+            const indicator = document.getElementById('zoneIndicator');
+            indicator.style.display = 'block';
+            
+            if (isInBlueZone(x, y)) {
+                indicator.textContent = '✓ Zona válida para cultivo';
+                indicator.classList.remove('invalid');
+            } else {
+                indicator.textContent = '✗ Zona no válida';
+                indicator.classList.add('invalid');
+            }
+        }
+
+        // Plantar cultivo en una posición
+        function plantCropAt(x, y) {
+            const cropType = gameState.selectedCrop;
+            const crop = GAME_CONFIG.crops[cropType];
+            
+            // Verificar recursos
+            if (gameState.seeds < crop.seedCost || gameState.coins < crop.coinCost) {
+                updateTopMessage(`No tienes suficientes recursos para plantar ${crop.name}.`);
+                return;
+            }
+            
+            // Deducir recursos
+            gameState.seeds -= crop.seedCost;
+            gameState.coins -= crop.coinCost;
+            updateResourceDisplay();
+            
+            // Crear la parcela
+            const plot = createPlotElement(x, y, cropType);
+            document.getElementById('mapContainer').appendChild(plot);
+            
+            const plotData = {
+                id: gameState.nextPlotId++,
+                element: plot,
+                crop: cropType,
+                x: x,
+                y: y,
+                growthProgress: 0,
+                growthInterval: null,
+                startTime: Date.now(),
+                ready: false
+            };
+            
+            gameState.plots.push(plotData);
+            
+            // Iniciar crecimiento
+            startGrowth(plotData.id);
+            
+            // Si no tiene el tractor, cancelar modo plantación
+            if (!gameState.upgrades.tractor) {
+                gameState.plantingMode = false;
+                gameState.selectedCrop = null;
+                document.getElementById('cancelButton').style.display = 'none';
+                document.getElementById('mapContainer').classList.remove('planting-mode');
+                document.getElementById('mapContainer').classList.add('normal-mode');
+                updateTopMessage('¡Cultivo plantado! Espera a que crezca para cosecharlo.');
+            } else {
+                updateTopMessage(`¡${crop.name} plantado! Puedes seguir plantando o cancelar.`);
+            }
+        }
+
+        // Crear elemento de parcela
+        function createPlotElement(x, y, cropType) {
+            const crop = GAME_CONFIG.crops[cropType];
+            
+            const plot = document.createElement('div');
+            plot.className = 'map-plot planted';
+            plot.style.left = `${x}px`;
+            plot.style.top = `${y}px`;
+            
+            const cropIcon = document.createElement('div');
+            cropIcon.className = 'crop-icon-display';
+            cropIcon.textContent = crop.icon;
+            plot.appendChild(cropIcon);
+            
+            const label = document.createElement('div');
+            label.className = 'plot-label';
+            label.textContent = 'Creciendo...';
+            plot.appendChild(label);
+            
+            if (gameState.showProgress) {
+                const progress = document.createElement('div');
+                progress.className = 'plot-progress';
+                const progressFill = document.createElement('div');
+                progressFill.className = 'plot-progress-fill';
+                progress.appendChild(progressFill);
+                plot.appendChild(progress);
+            }
+            
+            plot.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const plotData = gameState.plots.find(p => p.element === plot);
+                if (plotData) {
+                    handlePlotClick(plotData.id);
+                }
+            });
+            
+            return plot;
+        }
+
+        // Iniciar crecimiento
+        function startGrowth(plotId) {
+            const plot = gameState.plots.find(p => p.id === plotId);
+            if (!plot) return;
+            
+            const crop = GAME_CONFIG.crops[plot.crop];
+            
+            let growthTime = crop.growthTime / gameState.growthSpeedMultiplier;
+            
+            if (gameState.upgrades.watering) {
+                growthTime *= 0.7;
+            }
+            
+            const updateInterval = 100;
+            
+            plot.growthInterval = setInterval(() => {
+                const elapsed = Date.now() - plot.startTime;
+                plot.growthProgress = Math.min((elapsed / growthTime) * 100, 100);
+                
+                // Actualizar barra de progreso
+                const progressBar = plot.element.querySelector('.plot-progress-fill');
+                if (progressBar) {
+                    progressBar.style.width = `${plot.growthProgress}%`;
+                }
+                
+                if (plot.growthProgress >= 100) {
+                    clearInterval(plot.growthInterval);
+                    finishGrowth(plotId);
+                }
+            }, updateInterval);
+        }
+
+        // Finalizar crecimiento
+        function finishGrowth(plotId) {
+            const plot = gameState.plots.find(p => p.id === plotId);
+            if (!plot) return;
+            
+            const crop = GAME_CONFIG.crops[plot.crop];
+            
+            plot.ready = true;
+            plot.element.classList.add('ready');
+            
+            const label = plot.element.querySelector('.plot-label');
+            if (label) {
+                label.textContent = '¡Listo para cosechar!';
+                label.classList.add('ready-label');
+            }
+            
+            updateTopMessage(`¡Tu ${crop.name} está listo para cosechar! Haz clic en la parcela.`);
+        }
+
+        // Manejar click en parcela
+        function handlePlotClick(plotId) {
+            const plot = gameState.plots.find(p => p.id === plotId);
+            if (!plot) return;
+            
+            if (plot.ready) {
+                harvestCrop(plotId);
+            } else {
+                showPlotInfo(plotId);
+            }
+        }
+
+        // Cosechar cultivo
+        function harvestCrop(plotId) {
+            const plot = gameState.plots.find(p => p.id === plotId);
+            if (!plot) return;
+            
+            const crop = GAME_CONFIG.crops[plot.crop];
+            
+            // Calcular recompensas
+            let seedReward = crop.seedReward;
+            let coinReward = crop.coinReward;
+            
+            if (gameState.upgrades.fertilizer) {
+                seedReward = Math.floor(seedReward * 1.5);
+                coinReward = Math.floor(coinReward * 1.5);
+            }
+            
+            gameState.seeds += seedReward;
+            gameState.coins += coinReward;
+            updateResourceDisplay();
+            
+            // Animación de cosecha
+            plot.element.style.animation = 'growIn 0.5s ease reverse';
+            
+            setTimeout(() => {
+                plot.element.remove();
+                gameState.plots = gameState.plots.filter(p => p.id !== plotId);
+                updateResourceDisplay();
+            }, 500);
+            
+            const rewardText = seedReward > 0 
+                ? `+${seedReward} semillas` 
+                : `+${coinReward} monedas`;
+            
+            updateTopMessage(`¡Cosecha exitosa! ${rewardText}. Continúa cultivando tu granja.`);
+        }
+
+        // Mostrar información de parcela
+        function showPlotInfo(plotId) {
+            const plot = gameState.plots.find(p => p.id === plotId);
+            if (!plot) return;
+            
+            const crop = GAME_CONFIG.crops[plot.crop];
+            
+            const infoPanel = document.getElementById('infoPanel');
+            const infoText = document.getElementById('infoPanelText');
+            
+            infoPanel.style.display = 'block';
+            infoText.innerHTML = `
+                <strong>${crop.name}</strong><br>
+                Estado: Creciendo<br>
+                Progreso: ${Math.floor(plot.growthProgress)}%<br>
+                Tiempo restante: ${getTimeRemaining(plot)}
+            `;
+        }
+
+        // Calcular tiempo restante
+        function getTimeRemaining(plot) {
+            const crop = GAME_CONFIG.crops[plot.crop];
+            let growthTime = crop.growthTime / gameState.growthSpeedMultiplier;
+            
+            if (gameState.upgrades.watering) {
+                growthTime *= 0.7;
+            }
+            
+            const elapsed = Date.now() - plot.startTime;
+            const remaining = Math.max(0, growthTime - elapsed);
+            
+            const seconds = Math.ceil(remaining / 1000);
+            return `${seconds}s`;
+        }
+
+        // Actualizar barras de progreso
+        function updateAllProgressBars() {
+            gameState.plots.forEach(plot => {
+                const progressContainer = plot.element.querySelector('.plot-progress');
+                if (progressContainer) {
+                    progressContainer.style.display = gameState.showProgress ? 'block' : 'none';
+                }
+            });
+        }
+
+        // Tienda
+        function openShop() {
+            document.getElementById('shopModal').style.display = 'flex';
+            updateShopAffordability();
+        }
+
+        function closeShop() {
+            document.getElementById('shopModal').style.display = 'none';
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(`${tabName}Tab`).classList.add('active');
+            
+            if (tabName === 'crops' || tabName === 'upgrades') {
+                updateShopAffordability();
+            }
+        }
+
+        function updateShopAffordability() {
+            document.querySelectorAll('.crop-item').forEach(item => {
+                const cropType = item.dataset.crop;
+                const crop = GAME_CONFIG.crops[cropType];
+                
+                if (gameState.seeds >= crop.seedCost && gameState.coins >= crop.coinCost) {
+                    item.classList.add('affordable');
+                } else {
+                    item.classList.remove('affordable');
+                }
+            });
+            
+            document.querySelectorAll('.upgrade-item').forEach(item => {
+                const upgradeType = item.dataset.upgrade;
+                const upgrade = GAME_CONFIG.upgrades[upgradeType];
+                
+                if (gameState.upgrades[upgradeType]) {
+                    item.classList.add('purchased');
+                } else if (gameState.coins >= upgrade.cost) {
+                    item.classList.add('affordable');
+                    item.classList.remove('purchased');
+                } else {
+                    item.classList.remove('affordable');
+                }
+            });
+        }
+
+        function selectCrop(cropType) {
+            const crop = GAME_CONFIG.crops[cropType];
+            
+            if (gameState.seeds < crop.seedCost || gameState.coins < crop.coinCost) {
+                updateTopMessage(`No tienes suficientes recursos para comprar ${crop.name}.`);
+                return;
+            }
+            
+            document.querySelectorAll('.crop-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+            event.currentTarget.classList.add('selected');
+            
+            gameState.selectedCrop = cropType;
+            gameState.plantingMode = true;
+            
+            closeShop();
+            document.getElementById('cancelButton').style.display = 'block';
+            document.getElementById('mapContainer').classList.remove('normal-mode');
+            document.getElementById('mapContainer').classList.add('planting-mode');
+            
+            updateTopMessage(`Haz clic en una zona azul del mapa para plantar ${crop.name}.`);
+        }
+
+        function cancelPlanting() {
+            gameState.selectedCrop = null;
+            gameState.plantingMode = false;
+            document.getElementById('cancelButton').style.display = 'none';
+            document.getElementById('mapContainer').classList.remove('planting-mode');
+            document.getElementById('mapContainer').classList.add('normal-mode');
+            document.getElementById('zoneIndicator').style.display = 'none';
+            
+            updateTopMessage('Plantación cancelada. Abre la tienda para seleccionar otro cultivo.');
+        }
+
+        function purchaseUpgrade(upgradeType) {
+            const upgrade = GAME_CONFIG.upgrades[upgradeType];
+            
+            if (gameState.upgrades[upgradeType]) {
+                updateTopMessage(`Ya has comprado: ${upgrade.name}`);
+                return;
+            }
+            
+            if (gameState.coins < upgrade.cost) {
+                updateTopMessage(`No tienes suficientes monedas para comprar ${upgrade.name}.`);
+                return;
+            }
+            
+            gameState.coins -= upgrade.cost;
+            gameState.upgrades[upgradeType] = true;
+            updateResourceDisplay();
+            updateShopAffordability();
+            
+            updateTopMessage(`¡${upgrade.name} comprada! ${upgrade.description}`);
+        }
+
+        function updateResourceDisplay() {
+            document.getElementById('seedsCount').textContent = gameState.seeds;
+            document.getElementById('coinsCount').textContent = gameState.coins;
+            document.getElementById('plotsCount').textContent = gameState.plots.length;
+        }
+
+        function updateTopMessage(message) {
+            const messageElement = document.getElementById('topMessage');
+            messageElement.textContent = message;
+            
+            messageElement.style.animation = 'none';
+            setTimeout(() => {
+                messageElement.style.animation = 'fadeIn 0.5s ease';
+            }, 10);
+        }
+
+        // Guardado y carga
+        function saveGameState() {
+            const saveData = {
+                seeds: gameState.seeds,
+                coins: gameState.coins,
+                upgrades: gameState.upgrades,
+                nextPlotId: gameState.nextPlotId,
+                plots: gameState.plots.map(plot => ({
+                    id: plot.id,
+                    crop: plot.crop,
+                    x: plot.x,
+                    y: plot.y,
+                    growthProgress: plot.growthProgress,
+                    ready: plot.ready,
+                    startTime: plot.startTime
+                }))
+            };
+            
+            localStorage.setItem('farmGameMapSave', JSON.stringify(saveData));
+        }
+
+        function loadGameState() {
+            const savedData = localStorage.getItem('farmGameMapSave');
+            
+            if (savedData) {
+                const data = JSON.parse(savedData);
+                gameState.seeds = data.seeds;
+                gameState.coins = data.coins;
+                gameState.upgrades = data.upgrades;
+                gameState.nextPlotId = data.nextPlotId;
+                
+                data.plots.forEach(savedPlot => {
+                    const plot = createPlotElement(savedPlot.x, savedPlot.y, savedPlot.crop);
+                    document.getElementById('mapContainer').appendChild(plot);
+                    
+                    const plotData = {
+                        id: savedPlot.id,
+                        element: plot,
+                        crop: savedPlot.crop,
+                        x: savedPlot.x,
+                        y: savedPlot.y,
+                        growthProgress: savedPlot.growthProgress,
+                        growthInterval: null,
+                        startTime: savedPlot.startTime,
+                        ready: savedPlot.ready
+                    };
+                    
+                    gameState.plots.push(plotData);
+                    
+                    if (!savedPlot.ready) {
+                        startGrowth(savedPlot.id);
+                    } else {
+                        finishGrowth(savedPlot.id);
+                    }
+                });
+                
+                updateResourceDisplay();
+            }
+        }
+
+        setInterval(saveGameState, 10000);
+        window.addEventListener('beforeunload', saveGameState);
+
+        console.log('🌾 ¡Cultivos de Cabanillas inicializado! 🌾');
+    </script>
+</body>
+</html>
