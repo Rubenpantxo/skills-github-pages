@@ -543,7 +543,7 @@
 
     <!-- Contenedor del mapa -->
     <div id="mapContainer" class="normal-mode">
-        <img id="mapImage" src="/mnt/user-data/uploads/Fondo.jpg" alt="Mapa de Cabanillas">
+        <img id="mapImage" src="assets/images/Fondo.jpg" alt="Mapa de Cabanillas">
         <!-- Las parcelas se añadirán aquí dinámicamente -->
     </div>
 
@@ -785,7 +785,7 @@
         // Inicializar canvas de detección de zonas
         function initializeZoneDetection() {
             const zoneImage = new Image();
-            zoneImage.src = '/mnt/user-data/uploads/ZonasCultivo_Azul.png';
+            zoneImage.src = 'assets/images/ZonasCultivo_Azul.png';
             
             zoneImage.onload = () => {
                 zoneCanvas = document.getElementById('zoneCanvas');
