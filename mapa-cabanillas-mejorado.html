@@ -34,8 +34,8 @@
         /* Contenedor del mapa mundo - TAMAÑO AUMENTADO */
         #worldMap {
             position: absolute;
-            width: 5500px;
-            height: 3850px;
+            width: 7000px;
+            height: 5000px;
             background-image: url('assets/images/Fondo.jpg');
             background-size: cover;
             background-position: center;
@@ -158,8 +158,8 @@
             position: fixed;
             bottom: 20px;
             right: 20px;
-            width: 330px;
-            height: 231px;
+            width: 420px;
+            height: 300px;
             background: rgba(0, 0, 0, 0.85);
             border: 3px solid rgba(255, 255, 255, 0.4);
             border-radius: 12px;
@@ -570,36 +570,48 @@
                 <div class="zone-label">Almacén</div>
             </div>
 
-            <!-- ZONAS DE CULTIVO (alrededor del pueblo) -->
-            
-            <!-- Zona: Área de Cultivo Norte -->
-            <div class="zone crops" data-zone="crops_north" style="left: 1200px; top: 800px; width: 600px; height: 500px;">
-                <div class="zone-icon">🌾</div>
-                <div class="zone-label">Zona de Cultivo Norte</div>
+            <!-- ZONAS DE CULTIVO (distribuidas por el mapa) -->
+
+            <!-- Zona: Cultivo de Brócoli -->
+            <div class="zone crops" data-zone="crops_brocoli" style="left: 1200px; top: 800px; width: 600px; height: 500px;">
+                <div class="zone-icon">🥦</div>
+                <div class="zone-label">Cultivo de Brócoli</div>
             </div>
 
-            <!-- Zona: Área de Cultivo Oeste -->
-            <div class="zone crops" data-zone="crops_west" style="left: 800px; top: 1600px; width: 550px; height: 480px;">
-                <div class="zone-icon">🌽</div>
-                <div class="zone-label">Zona de Cultivo Oeste</div>
+            <!-- Zona: Cultivo de Alcachofa -->
+            <div class="zone crops" data-zone="crops_alcachofa" style="left: 4500px; top: 1200px; width: 650px; height: 520px;">
+                <div class="zone-icon">🌿</div>
+                <div class="zone-label">Cultivo de Alcachofa</div>
             </div>
 
-            <!-- Zona: Área de Cultivo Este -->
-            <div class="zone crops" data-zone="crops_east" style="left: 3400px; top: 1400px; width: 650px; height: 550px;">
-                <div class="zone-icon">🥔</div>
-                <div class="zone-label">Zona de Cultivo Este</div>
+            <!-- Zona: Cultivo de Espárrago -->
+            <div class="zone crops" data-zone="crops_esparrago" style="left: 800px; top: 2800px; width: 600px; height: 550px;">
+                <div class="zone-icon">🎋</div>
+                <div class="zone-label">Cultivo de Espárrago</div>
             </div>
 
-            <!-- Zona: Área de Cultivo Sur -->
-            <div class="zone crops" data-zone="crops_south" style="left: 2000px; top: 2600px; width: 700px; height: 550px;">
-                <div class="zone-icon">🍅</div>
-                <div class="zone-label">Zona de Cultivo Sur</div>
+            <!-- Zona: Cultivo de Coliflor -->
+            <div class="zone crops" data-zone="crops_coliflor" style="left: 5500px; top: 2500px; width: 700px; height: 600px;">
+                <div class="zone-icon">🥬</div>
+                <div class="zone-label">Cultivo de Coliflor</div>
             </div>
 
-            <!-- Zona: Área de Cultivo Noroeste (adicional) -->
-            <div class="zone crops" data-zone="crops_northwest" style="left: 600px; top: 600px; width: 480px; height: 450px;">
-                <div class="zone-icon">🍓</div>
-                <div class="zone-label">Zona de Cultivo Noroeste</div>
+            <!-- Zona: Cultivo de Piparrikas -->
+            <div class="zone crops" data-zone="crops_piparrikas" style="left: 2200px; top: 3800px; width: 650px; height: 580px;">
+                <div class="zone-icon">🫑</div>
+                <div class="zone-label">Cultivo de Piparrikas</div>
+            </div>
+
+            <!-- Zona: Cultivo de Pimiento Colorao -->
+            <div class="zone crops" data-zone="crops_pimiento" style="left: 4800px; top: 600px; width: 620px; height: 500px;">
+                <div class="zone-icon">🌶️</div>
+                <div class="zone-label">Cultivo de Pimiento Colorao</div>
+            </div>
+
+            <!-- Zona: Cultivo de Cogollos de Tudela -->
+            <div class="zone crops" data-zone="crops_cogollos" style="left: 1000px; top: 4000px; width: 680px; height: 550px;">
+                <div class="zone-icon">🥗</div>
+                <div class="zone-label">Cultivo de Cogollos de Tudela</div>
             </div>
         </div>
     </div>
@@ -650,15 +662,19 @@
     <!-- Minimapa -->
     <div id="minimap">
         <div class="minimap-content">
-            <!-- Las zonas se calcularán proporcionalmente -->
-            <div class="minimap-zone shop" style="left: 45.5%; top: 45.5%; width: 5.1%; height: 6.2%;"></div>
-            <div class="minimap-zone house" style="left: 50.9%; top: 44.2%; width: 5.5%; height: 6.8%;"></div>
-            <div class="minimap-zone storage" style="left: 47.3%; top: 53.2%; width: 5.8%; height: 7%;"></div>
-            <div class="minimap-zone crops" style="left: 21.8%; top: 20.8%; width: 10.9%; height: 13%;"></div>
-            <div class="minimap-zone crops" style="left: 14.5%; top: 41.6%; width: 10%; height: 12.5%;"></div>
-            <div class="minimap-zone crops" style="left: 61.8%; top: 36.4%; width: 11.8%; height: 14.3%;"></div>
-            <div class="minimap-zone crops" style="left: 36.4%; top: 67.5%; width: 12.7%; height: 14.3%;"></div>
-            <div class="minimap-zone crops" style="left: 10.9%; top: 15.6%; width: 8.7%; height: 11.7%;"></div>
+            <!-- Zonas del pueblo -->
+            <div class="minimap-zone shop" style="left: 35.7%; top: 35%; width: 4%; height: 4.8%;"></div>
+            <div class="minimap-zone house" style="left: 40%; top: 34%; width: 4.3%; height: 5.2%;"></div>
+            <div class="minimap-zone storage" style="left: 37.1%; top: 41%; width: 4.6%; height: 5.4%;"></div>
+
+            <!-- Zonas de cultivo -->
+            <div class="minimap-zone crops" style="left: 17.1%; top: 16%; width: 8.6%; height: 10%;"></div>
+            <div class="minimap-zone crops" style="left: 64.3%; top: 24%; width: 9.3%; height: 10.4%;"></div>
+            <div class="minimap-zone crops" style="left: 11.4%; top: 56%; width: 8.6%; height: 11%;"></div>
+            <div class="minimap-zone crops" style="left: 78.6%; top: 50%; width: 10%; height: 12%;"></div>
+            <div class="minimap-zone crops" style="left: 31.4%; top: 76%; width: 9.3%; height: 11.6%;"></div>
+            <div class="minimap-zone crops" style="left: 68.6%; top: 12%; width: 8.9%; height: 10%;"></div>
+            <div class="minimap-zone crops" style="left: 14.3%; top: 80%; width: 9.7%; height: 11%;"></div>
             <div class="minimap-viewport"></div>
         </div>
     </div>
@@ -694,8 +710,8 @@
         // CONFIGURACIÓN DEL JUEGO
         // ============================================
 
-        const WORLD_WIDTH = 5500;   // Aumentado de 3000
-        const WORLD_HEIGHT = 3850;  // Aumentado de 2000
+        const WORLD_WIDTH = 7000;   // Aumentado para más zonas de cultivo
+        const WORLD_HEIGHT = 5000;  // Aumentado para más zonas de cultivo
         const MOVE_SPEED = 20;
         const DRAG_SPEED = 1;
         const MIN_ZOOM = 0.3;
@@ -746,34 +762,46 @@
                 description: 'El almacén donde guardas tus cosechas. Mejóralo para aumentar tu capacidad de almacenamiento.',
                 action: 'openStorage'
             },
-            crops_north: {
-                name: 'Campos del Norte',
-                icon: '🌾',
-                description: 'Zona de cultivo al norte de Cabanillas. Terreno ideal para cereales y cultivos de temporada fría.',
+            crops_brocoli: {
+                name: 'Cultivo de Brócoli',
+                icon: '🥦',
+                description: 'Zona de cultivo de brócoli. Hortaliza nutritiva de la familia de las crucíferas, perfecta para el clima de Cabanillas.',
                 action: 'openCropArea'
             },
-            crops_west: {
-                name: 'Campos del Oeste',
-                icon: '🌽',
-                description: 'Campos al oeste del pueblo. Suelo fértil perfecto para maíz y hortalizas variadas.',
+            crops_alcachofa: {
+                name: 'Cultivo de Alcachofa',
+                icon: '🌿',
+                description: 'Área dedicada al cultivo de alcachofas. Planta tradicional de la huerta navarra, apreciada por su sabor único.',
                 action: 'openCropArea'
             },
-            crops_east: {
-                name: 'Campos del Este',
-                icon: '🥔',
-                description: 'Extensas tierras al este. Excelente drenaje, ideal para cultivos de raíz como patatas.',
+            crops_esparrago: {
+                name: 'Cultivo de Espárrago',
+                icon: '🎋',
+                description: 'Zona especializada en espárragos. Producto de alta calidad, muy valorado en la gastronomía local.',
                 action: 'openCropArea'
             },
-            crops_south: {
-                name: 'Campos del Sur',
-                icon: '🍅',
-                description: 'Zona sur con máxima exposición solar. Perfecta para tomates, pimientos y cultivos de verano.',
+            crops_coliflor: {
+                name: 'Cultivo de Coliflor',
+                icon: '🥬',
+                description: 'Parcela de coliflor. Hortaliza versátil y nutritiva, ideal para el clima de la región.',
                 action: 'openCropArea'
             },
-            crops_northwest: {
-                name: 'Campos del Noroeste',
-                icon: '🍓',
-                description: 'Pequeña parcela al noroeste. Ideal para fresas y cultivos especiales que requieren cuidado intensivo.',
+            crops_piparrikas: {
+                name: 'Cultivo de Piparrikas',
+                icon: '🫑',
+                description: 'Zona de piparrikas (pimientos verdes). Ingrediente esencial de la cocina navarra.',
+                action: 'openCropArea'
+            },
+            crops_pimiento: {
+                name: 'Cultivo de Pimiento Colorao',
+                icon: '🌶️',
+                description: 'Área de pimiento colorao (pimiento rojo). Cultivo tradicional con gran sabor y color.',
+                action: 'openCropArea'
+            },
+            crops_cogollos: {
+                name: 'Cultivo de Cogollos de Tudela',
+                icon: '🥗',
+                description: 'Zona de cogollos de Tudela. Lechuga de cogollo famosa por su calidad y frescura, IGP de Navarra.',
                 action: 'openCropArea'
             }
         };
@@ -1004,8 +1032,8 @@
         // ============================================
 
         function updateMinimap() {
-            const scaleX = 330 / WORLD_WIDTH;
-            const scaleY = 231 / WORLD_HEIGHT;
+            const scaleX = 420 / WORLD_WIDTH;
+            const scaleY = 300 / WORLD_HEIGHT;
 
             const viewportWidth = window.innerWidth / gameState.camera.zoom;
             const viewportHeight = window.innerHeight / gameState.camera.zoom;
