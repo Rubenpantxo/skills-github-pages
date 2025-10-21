@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mi Granja - Mapa Interactivo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+            background: #1a1a1a;
+            height: 100vh;
+        }
+
+        /* Viewport principal */
+        #viewport {
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+            cursor: grab;
+        }
+
+        #viewport.dragging {
+            cursor: grabbing;
+        }
+
+        /* Contenedor del mapa mundo */
+        #worldMap {
+            position: absolute;
+            width: 3000px;
+            height: 2000px;
+            background: linear-gradient(135deg, #4a7c59 0%, #5a9a68 50%, #6db078 100%);
+            transition: transform 0.1s ease-out;
+        }
+
+        /* Grid del mapa para visualización */
+        .grid-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image:
+                repeating-linear-gradient(0deg, transparent, transparent 99px, rgba(255,255,255,0.05) 99px, rgba(255,255,255,0.05) 100px),
+                repeating-linear-gradient(90deg, transparent, transparent 99px, rgba(255,255,255,0.05) 99px, rgba(255,255,255,0.05) 100px);
+            pointer-events: none;
+        }
+
+        /* Zona interactiva base */
+        .zone {
+            position: absolute;
+            border: 3px solid transparent;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: bold;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            backdrop-filter: blur(5px);
+        }
+
+        .zone:hover {
+            transform: scale(1.05);
+            border-color: white;
+            box-shadow: 0 0 30px rgba(255,255,255,0.5);
+        }
+
+        .zone-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .zone-label {
+            background: rgba(0,0,0,0.7);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 16px;
+        }
+
+        /* Tipos de zonas */
+        .zone.shop {
+            background: rgba(255, 165, 0, 0.3);
+            border-color: rgba(255, 165, 0, 0.5);
+        }
+
+        .zone.crops {
+            background: rgba(34, 139, 34, 0.3);
+            border-color: rgba(34, 139, 34, 0.5);
+        }
+
+        .zone.storage {
+            background: rgba(139, 69, 19, 0.3);
+            border-color: rgba(139, 69, 19, 0.5);
+        }
+
+        .zone.house {
+            background: rgba(178, 34, 34, 0.3);
+            border-color: rgba(178, 34, 34, 0.5);
+        }
+
+        /* Minimapa */
+        #minimap {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 300px;
+            height: 200px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 12px;
+            overflow: hidden;
+            z-index: 1000;
+        }
+
+        .minimap-content {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            background: linear-gradient(135deg, #2a4c39 0%, #3a6a48 50%, #4a8a58 100%);
+        }
+
+        .minimap-zone {
+            position: absolute;
+            border: 2px solid white;
+            border-radius: 4px;
+            opacity: 0.7;
+        }
+
+        .minimap-zone.shop { background: rgba(255, 165, 0, 0.6); }
+        .minimap-zone.crops { background: rgba(34, 139, 34, 0.6); }
+        .minimap-zone.storage { background: rgba(139, 69, 19, 0.6); }
+        .minimap-zone.house { background: rgba(178, 34, 34, 0.6); }
+
+        .minimap-viewport {
+            position: absolute;
+            border: 2px solid yellow;
+            background: rgba(255, 255, 0, 0.1);
+            pointer-events: none;
+        }
+
+        /* Controles de navegación */
+        #controls {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.85);
+            padding: 15px 30px;
+            border-radius: 8px;
+            color: white;
+            z-index: 1000;
+            text-align: center;
+        }
+
+        #controls h3 {
+            margin-bottom: 10px;
+            color: #66ff66;
+        }
+
+        #controls p {
+            font-size: 14px;
+            margin: 5px 0;
+        }
+
+        /* Indicador de zona actual */
+        #currentZone {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 15px 25px;
+            border-radius: 8px;
+            color: white;
+            z-index: 1000;
+            min-width: 200px;
+        }
+
+        #currentZone h4 {
+            color: #66ff66;
+            margin-bottom: 8px;
+        }
+
+        #currentZone p {
+            font-size: 14px;
+            color: #ccc;
+        }
+
+        /* Botones de acción rápida */
+        .quick-actions {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            display: flex;
+            gap: 10px;
+            z-index: 1000;
+        }
+
+        .quick-action-btn {
+            width: 60px;
+            height: 60px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .quick-action-btn:hover {
+            background: rgba(0, 0, 0, 0.95);
+            transform: scale(1.1);
+            border-color: white;
+        }
+
+        /* Tooltip */
+        .tooltip {
+            position: fixed;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-size: 14px;
+            pointer-events: none;
+            z-index: 10000;
+            display: none;
+            white-space: nowrap;
+        }
+
+        /* Modal de zona */
+        .zone-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .zone-modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: #2a2a2a;
+            padding: 40px;
+            border-radius: 16px;
+            max-width: 600px;
+            width: 90%;
+            color: white;
+            position: relative;
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .modal-content h2 {
+            color: #66ff66;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .modal-content .zone-icon {
+            font-size: 64px;
+            margin: 0;
+        }
+
+        .modal-content p {
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        .modal-btn {
+            flex: 1;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .modal-btn.primary {
+            background: #4fb3d4;
+            color: white;
+        }
+
+        .modal-btn.primary:hover {
+            background: #3da5c4;
+            transform: translateY(-2px);
+        }
+
+        .modal-btn.secondary {
+            background: #555;
+            color: white;
+        }
+
+        .modal-btn.secondary:hover {
+            background: #666;
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 32px;
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .close-modal:hover {
+            color: #ff4444;
+            transform: rotate(90deg);
+        }
+
+        /* Recursos del jugador */
+        #playerResources {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 15px 25px;
+            border-radius: 8px;
+            color: white;
+            z-index: 1000;
+            min-width: 200px;
+        }
+
+        #playerResources h4 {
+            color: #66ff66;
+            margin-bottom: 10px;
+        }
+
+        .resource-item {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+            font-size: 14px;
+        }
+
+        .resource-item strong {
+            color: #66ff66;
+        }
+
+        /* Zoom controls */
+        .zoom-controls {
+            position: fixed;
+            top: 100px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 1000;
+        }
+
+        .zoom-btn {
+            width: 50px;
+            height: 50px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .zoom-btn:hover {
+            background: rgba(0, 0, 0, 0.95);
+            border-color: white;
+        }
+
+        /* Parcelas de cultivo dentro de la zona */
+        .crop-plot {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            background: rgba(139, 115, 85, 0.8);
+            border: 3px solid #6d5a45;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+        }
+
+        .crop-plot:hover {
+            transform: scale(1.1);
+            border-color: #8b7355;
+        }
+
+        .crop-plot.planted {
+            background: rgba(107, 89, 64, 0.9);
+        }
+
+        .crop-plot.ready {
+            animation: readyPulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes readyPulse {
+            0%, 100% {
+                box-shadow: 0 0 0 0 rgba(0, 200, 0, 0.7);
+                border-color: #00ff00;
+            }
+            50% {
+                box-shadow: 0 0 0 15px rgba(0, 200, 0, 0);
+                border-color: #66ff66;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Viewport principal -->
+    <div id="viewport">
+        <div id="worldMap">
+            <!-- Grid overlay -->
+            <div class="grid-overlay"></div>
+
+            <!-- Zona: Tienda -->
+            <div class="zone shop" data-zone="shop" style="left: 200px; top: 200px; width: 300px; height: 250px;">
+                <div class="zone-icon">🏪</div>
+                <div class="zone-label">Tienda</div>
+            </div>
+
+            <!-- Zona: Área de Cultivo 1 -->
+            <div class="zone crops" data-zone="crops1" style="left: 700px; top: 300px; width: 500px; height: 400px;">
+                <div class="zone-icon">🌾</div>
+                <div class="zone-label">Área de Cultivo Norte</div>
+            </div>
+
+            <!-- Zona: Área de Cultivo 2 -->
+            <div class="zone crops" data-zone="crops2" style="left: 1400px; top: 600px; width: 500px; height: 400px;">
+                <div class="zone-icon">🌽</div>
+                <div class="zone-label">Área de Cultivo Sur</div>
+            </div>
+
+            <!-- Zona: Almacén -->
+            <div class="zone storage" data-zone="storage" style="left: 2200px; top: 400px; width: 350px; height: 300px;">
+                <div class="zone-icon">📦</div>
+                <div class="zone-label">Almacén</div>
+            </div>
+
+            <!-- Zona: Casa -->
+            <div class="zone house" data-zone="house" style="left: 1000px; top: 1400px; width: 400px; height: 350px;">
+                <div class="zone-icon">🏠</div>
+                <div class="zone-label">Casa</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Controles de navegación -->
+    <div id="controls">
+        <h3>🎮 Controles</h3>
+        <p>🖱️ Arrastra para mover | ⌨️ WASD / Flechas para navegar</p>
+        <p>🔍 +/- para zoom | 👆 Click en zonas para interactuar</p>
+    </div>
+
+    <!-- Indicador de zona actual -->
+    <div id="currentZone">
+        <h4>📍 Ubicación</h4>
+        <p id="locationText">Explorando el mapa...</p>
+    </div>
+
+    <!-- Recursos del jugador -->
+    <div id="playerResources">
+        <h4>💰 Recursos</h4>
+        <div class="resource-item">
+            <span>Semillas:</span>
+            <strong id="seedsCount">10</strong>
+        </div>
+        <div class="resource-item">
+            <span>Monedas:</span>
+            <strong id="coinsCount">100</strong>
+        </div>
+        <div class="resource-item">
+            <span>Nivel:</span>
+            <strong id="levelCount">1</strong>
+        </div>
+    </div>
+
+    <!-- Controles de zoom -->
+    <div class="zoom-controls">
+        <button class="zoom-btn" id="zoomIn">+</button>
+        <button class="zoom-btn" id="zoomOut">−</button>
+        <button class="zoom-btn" id="zoomReset" style="font-size: 16px;">⊙</button>
+    </div>
+
+    <!-- Minimapa -->
+    <div id="minimap">
+        <div class="minimap-content">
+            <div class="minimap-zone shop" style="left: 2%; top: 10%; width: 10%; height: 12.5%;"></div>
+            <div class="minimap-zone crops" style="left: 23.3%; top: 15%; width: 16.7%; height: 20%;"></div>
+            <div class="minimap-zone crops" style="left: 46.7%; top: 30%; width: 16.7%; height: 20%;"></div>
+            <div class="minimap-zone storage" style="left: 73.3%; top: 20%; width: 11.7%; height: 15%;"></div>
+            <div class="minimap-zone house" style="left: 33.3%; top: 70%; width: 13.3%; height: 17.5%;"></div>
+            <div class="minimap-viewport"></div>
+        </div>
+    </div>
+
+    <!-- Botones de acción rápida -->
+    <div class="quick-actions">
+        <button class="quick-action-btn" id="centerMap" title="Centrar mapa">🎯</button>
+        <button class="quick-action-btn" id="toggleGrid" title="Toggle grid">⊞</button>
+    </div>
+
+    <!-- Tooltip -->
+    <div class="tooltip" id="tooltip"></div>
+
+    <!-- Modal de zona -->
+    <div class="zone-modal" id="zoneModal">
+        <div class="modal-content">
+            <button class="close-modal" id="closeZoneModal">✕</button>
+            <h2>
+                <span class="zone-icon" id="modalIcon">🏪</span>
+                <span id="modalTitle">Tienda</span>
+            </h2>
+            <p id="modalDescription">Descripción de la zona</p>
+            <div class="modal-actions">
+                <button class="modal-btn primary" id="enterZone">Entrar</button>
+                <button class="modal-btn secondary" id="closeModal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // CONFIGURACIÓN DEL JUEGO
+        // ============================================
+
+        const WORLD_WIDTH = 3000;
+        const WORLD_HEIGHT = 2000;
+        const MOVE_SPEED = 15;
+        const DRAG_SPEED = 1;
+        const MIN_ZOOM = 0.5;
+        const MAX_ZOOM = 1.5;
+        const ZOOM_STEP = 0.1;
+
+        // ============================================
+        // ESTADO DEL JUEGO
+        // ============================================
+
+        const gameState = {
+            camera: {
+                x: 0,
+                y: 0,
+                zoom: 1
+            },
+            isDragging: false,
+            dragStart: { x: 0, y: 0 },
+            keys: {},
+            currentZone: null,
+            resources: {
+                seeds: 10,
+                coins: 100,
+                level: 1
+            }
+        };
+
+        // ============================================
+        // DATOS DE ZONAS
+        // ============================================
+
+        const ZONES_DATA = {
+            shop: {
+                name: 'Tienda',
+                icon: '🏪',
+                description: 'Compra semillas, herramientas y mejoras para tu granja. Aquí encontrarás todo lo que necesitas para crecer.',
+                action: 'openShop'
+            },
+            crops1: {
+                name: 'Área de Cultivo Norte',
+                icon: '🌾',
+                description: 'Zona de cultivo ideal para trigo, maíz y otros cereales. El suelo es fértil y bien drenado.',
+                action: 'openCropArea'
+            },
+            crops2: {
+                name: 'Área de Cultivo Sur',
+                icon: '🌽',
+                description: 'Perfecta para cultivos que requieren más sol. Ideal para tomates, calabazas y fresas.',
+                action: 'openCropArea'
+            },
+            storage: {
+                name: 'Almacén',
+                icon: '📦',
+                description: 'Guarda tus cosechas y administra tu inventario. Mejora el almacén para aumentar la capacidad.',
+                action: 'openStorage'
+            },
+            house: {
+                name: 'Casa',
+                icon: '🏠',
+                description: 'Tu hogar. Descansa, mejora habilidades y planifica tu próxima estrategia.',
+                action: 'openHouse'
+            }
+        };
+
+        // ============================================
+        // ELEMENTOS DEL DOM
+        // ============================================
+
+        const viewport = document.getElementById('viewport');
+        const worldMap = document.getElementById('worldMap');
+        const minimapViewport = document.querySelector('.minimap-viewport');
+        const locationText = document.getElementById('locationText');
+        const zoneModal = document.getElementById('zoneModal');
+        const tooltip = document.getElementById('tooltip');
+
+        // ============================================
+        // INICIALIZACIÓN
+        // ============================================
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeCamera();
+            setupEventListeners();
+            updateCamera();
+            updateMinimap();
+            startGameLoop();
+        });
+
+        function initializeCamera() {
+            // Centrar la cámara en el centro del mapa
+            gameState.camera.x = -(WORLD_WIDTH / 2 - window.innerWidth / 2);
+            gameState.camera.y = -(WORLD_HEIGHT / 2 - window.innerHeight / 2);
+        }
+
+        // ============================================
+        // EVENT LISTENERS
+        // ============================================
+
+        function setupEventListeners() {
+            // Drag del mapa
+            viewport.addEventListener('mousedown', handleDragStart);
+            document.addEventListener('mousemove', handleDragMove);
+            document.addEventListener('mouseup', handleDragEnd);
+
+            // Teclas de movimiento
+            document.addEventListener('keydown', (e) => {
+                gameState.keys[e.key.toLowerCase()] = true;
+
+                // Prevenir scroll con flechas
+                if(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                    e.preventDefault();
+                }
+            });
+
+            document.addEventListener('keyup', (e) => {
+                gameState.keys[e.key.toLowerCase()] = false;
+            });
+
+            // Zoom con rueda del mouse
+            viewport.addEventListener('wheel', handleWheel, { passive: false });
+
+            // Botones de zoom
+            document.getElementById('zoomIn').addEventListener('click', () => zoomCamera(ZOOM_STEP));
+            document.getElementById('zoomOut').addEventListener('click', () => zoomCamera(-ZOOM_STEP));
+            document.getElementById('zoomReset').addEventListener('click', () => {
+                gameState.camera.zoom = 1;
+                updateCamera();
+            });
+
+            // Botón centrar mapa
+            document.getElementById('centerMap').addEventListener('click', initializeCamera);
+
+            // Toggle grid
+            document.getElementById('toggleGrid').addEventListener('click', () => {
+                const grid = document.querySelector('.grid-overlay');
+                grid.style.display = grid.style.display === 'none' ? 'block' : 'none';
+            });
+
+            // Zonas interactivas
+            document.querySelectorAll('.zone').forEach(zone => {
+                zone.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    openZoneModal(zone.dataset.zone);
+                });
+
+                zone.addEventListener('mouseenter', (e) => {
+                    const zoneData = ZONES_DATA[zone.dataset.zone];
+                    showTooltip(e, zoneData.name);
+                });
+
+                zone.addEventListener('mouseleave', hideTooltip);
+            });
+
+            // Modal
+            document.getElementById('closeZoneModal').addEventListener('click', closeZoneModal);
+            document.getElementById('closeModal').addEventListener('click', closeZoneModal);
+            document.getElementById('enterZone').addEventListener('click', enterCurrentZone);
+
+            // Cerrar modal al hacer clic fuera
+            zoneModal.addEventListener('click', (e) => {
+                if (e.target === zoneModal) closeZoneModal();
+            });
+        }
+
+        // ============================================
+        // SISTEMA DE CÁMARA
+        // ============================================
+
+        function updateCamera() {
+            // Limitar la cámara a los bordes del mapa
+            const maxX = 0;
+            const minX = -(WORLD_WIDTH * gameState.camera.zoom - window.innerWidth);
+            const maxY = 0;
+            const minY = -(WORLD_HEIGHT * gameState.camera.zoom - window.innerHeight);
+
+            gameState.camera.x = Math.max(minX, Math.min(maxX, gameState.camera.x));
+            gameState.camera.y = Math.max(minY, Math.min(maxY, gameState.camera.y));
+
+            // Aplicar transformación
+            worldMap.style.transform = `
+                translate(${gameState.camera.x}px, ${gameState.camera.y}px)
+                scale(${gameState.camera.zoom})
+            `;
+
+            updateMinimap();
+        }
+
+        function zoomCamera(delta) {
+            gameState.camera.zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, gameState.camera.zoom + delta));
+            updateCamera();
+        }
+
+        // ============================================
+        // CONTROLES DE MOVIMIENTO
+        // ============================================
+
+        function handleDragStart(e) {
+            if (e.target.classList.contains('zone')) return;
+
+            gameState.isDragging = true;
+            gameState.dragStart = {
+                x: e.clientX - gameState.camera.x,
+                y: e.clientY - gameState.camera.y
+            };
+            viewport.classList.add('dragging');
+        }
+
+        function handleDragMove(e) {
+            if (!gameState.isDragging) return;
+
+            gameState.camera.x = e.clientX - gameState.dragStart.x;
+            gameState.camera.y = e.clientY - gameState.dragStart.y;
+
+            updateCamera();
+        }
+
+        function handleDragEnd() {
+            gameState.isDragging = false;
+            viewport.classList.remove('dragging');
+        }
+
+        function handleWheel(e) {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
+            zoomCamera(delta);
+        }
+
+        function handleKeyboardMovement() {
+            let moved = false;
+
+            if (gameState.keys['w'] || gameState.keys['arrowup']) {
+                gameState.camera.y += MOVE_SPEED;
+                moved = true;
+            }
+            if (gameState.keys['s'] || gameState.keys['arrowdown']) {
+                gameState.camera.y -= MOVE_SPEED;
+                moved = true;
+            }
+            if (gameState.keys['a'] || gameState.keys['arrowleft']) {
+                gameState.camera.x += MOVE_SPEED;
+                moved = true;
+            }
+            if (gameState.keys['d'] || gameState.keys['arrowright']) {
+                gameState.camera.x -= MOVE_SPEED;
+                moved = true;
+            }
+
+            if (moved) {
+                updateCamera();
+            }
+        }
+
+        // ============================================
+        // MINIMAPA
+        // ============================================
+
+        function updateMinimap() {
+            const scaleX = 300 / WORLD_WIDTH;
+            const scaleY = 200 / WORLD_HEIGHT;
+
+            const viewportWidth = window.innerWidth / gameState.camera.zoom;
+            const viewportHeight = window.innerHeight / gameState.camera.zoom;
+
+            const minimapX = (-gameState.camera.x / gameState.camera.zoom) * scaleX;
+            const minimapY = (-gameState.camera.y / gameState.camera.zoom) * scaleY;
+            const minimapW = viewportWidth * scaleX;
+            const minimapH = viewportHeight * scaleY;
+
+            minimapViewport.style.left = `${minimapX}px`;
+            minimapViewport.style.top = `${minimapY}px`;
+            minimapViewport.style.width = `${minimapW}px`;
+            minimapViewport.style.height = `${minimapH}px`;
+        }
+
+        // ============================================
+        // SISTEMA DE ZONAS
+        // ============================================
+
+        function openZoneModal(zoneId) {
+            const zoneData = ZONES_DATA[zoneId];
+            gameState.currentZone = zoneId;
+
+            document.getElementById('modalIcon').textContent = zoneData.icon;
+            document.getElementById('modalTitle').textContent = zoneData.name;
+            document.getElementById('modalDescription').textContent = zoneData.description;
+
+            zoneModal.classList.add('active');
+        }
+
+        function closeZoneModal() {
+            zoneModal.classList.remove('active');
+            gameState.currentZone = null;
+        }
+
+        function enterCurrentZone() {
+            if (!gameState.currentZone) return;
+
+            const zoneData = ZONES_DATA[gameState.currentZone];
+
+            // Ejecutar acción de la zona
+            switch(zoneData.action) {
+                case 'openShop':
+                    alert('🏪 Abriendo tienda... (funcionalidad en desarrollo)');
+                    break;
+                case 'openCropArea':
+                    alert('🌾 Accediendo al área de cultivo... (funcionalidad en desarrollo)');
+                    break;
+                case 'openStorage':
+                    alert('📦 Abriendo almacén... (funcionalidad en desarrollo)');
+                    break;
+                case 'openHouse':
+                    alert('🏠 Entrando a casa... (funcionalidad en desarrollo)');
+                    break;
+            }
+
+            closeZoneModal();
+        }
+
+        // ============================================
+        // TOOLTIPS
+        // ============================================
+
+        function showTooltip(e, text) {
+            tooltip.textContent = text;
+            tooltip.style.display = 'block';
+            updateTooltipPosition(e);
+        }
+
+        function hideTooltip() {
+            tooltip.style.display = 'none';
+        }
+
+        function updateTooltipPosition(e) {
+            const x = e.clientX + 15;
+            const y = e.clientY + 15;
+
+            tooltip.style.left = `${x}px`;
+            tooltip.style.top = `${y}px`;
+        }
+
+        // ============================================
+        // DETECCIÓN DE ZONA
+        // ============================================
+
+        function checkCurrentLocation() {
+            const centerX = -gameState.camera.x + window.innerWidth / 2;
+            const centerY = -gameState.camera.y + window.innerHeight / 2;
+
+            const zones = document.querySelectorAll('.zone');
+            let foundZone = null;
+
+            zones.forEach(zone => {
+                const rect = zone.getBoundingClientRect();
+                const zoneX = parseFloat(zone.style.left);
+                const zoneY = parseFloat(zone.style.top);
+                const zoneW = parseFloat(zone.style.width);
+                const zoneH = parseFloat(zone.style.height);
+
+                if (centerX >= zoneX && centerX <= zoneX + zoneW &&
+                    centerY >= zoneY && centerY <= zoneY + zoneH) {
+                    foundZone = ZONES_DATA[zone.dataset.zone];
+                }
+            });
+
+            if (foundZone) {
+                locationText.textContent = `Cerca de: ${foundZone.name}`;
+            } else {
+                locationText.textContent = 'Explorando el mapa...';
+            }
+        }
+
+        // ============================================
+        // GAME LOOP
+        // ============================================
+
+        function startGameLoop() {
+            setInterval(() => {
+                handleKeyboardMovement();
+                checkCurrentLocation();
+            }, 16); // ~60 FPS
+        }
+
+        console.log('🗺️ ¡Mapa interactivo inicializado! 🗺️');
+    </script>
+</body>
+</html>

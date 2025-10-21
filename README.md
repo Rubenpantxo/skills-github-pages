@@ -13,7 +13,7 @@ Un simulador de granja interactivo desarrollado con HTML, CSS y JavaScript puro.
 
 ## Versiones del Juego
 
-El proyecto incluye tres versiones diferentes:
+El proyecto incluye cuatro versiones diferentes:
 
 1. **index.html** - Versión principal modular
    - Separa HTML, CSS y JavaScript en archivos independientes
@@ -23,9 +23,17 @@ El proyecto incluye tres versiones diferentes:
    - Todo el código en un solo archivo
    - Fácil de compartir y usar sin dependencias
 
-3. **cultivos-cabanillas.html** - Versión con mapa interactivo
+3. **cultivos-cabanillas.html** - Versión con mapa de imagen
    - Incluye sistema de zonas de cultivo basado en imagen
    - Permite plantar en ubicaciones específicas del mapa
+
+4. **mapa-interactivo.html** - ⭐ Mapa navegable interactivo (NUEVO)
+   - Sistema de cámara con viewport navegable (3000x2000px)
+   - Navegación con mouse (drag) y teclado (WASD/flechas)
+   - Zoom dinámico con rueda del mouse
+   - 5 zonas interactivas: Tienda, Cultivos (x2), Almacén, Casa
+   - Minimapa en tiempo real
+   - Sistema de tooltips y modales informativos
 
 ## Estructura del Proyecto
 
@@ -41,22 +49,41 @@ skills-github-pages/
 │       ├── ZonasCultivo_Azul.png
 │       ├── Textura_tierra_*.png
 │       └── ...
-├── Imagenes/                   # Carpeta adicional de imágenes
 ├── index.html                  # Página principal
 ├── farm-game-complete.html     # Versión completa autónoma
-├── cultivos-cabanillas.html    # Versión con mapa
+├── cultivos-cabanillas.html    # Versión con mapa de imagen
+├── mapa-interactivo.html       # Mapa navegable interactivo
 └── README.md                   # Este archivo
 ```
 
 ## Cómo Jugar
 
-1. Abre `index.html` en tu navegador web
+### Modo Básico (index.html, farm-game-complete.html)
+
+1. Abre el archivo HTML en tu navegador web
 2. Haz clic en el botón de tienda (esquina superior izquierda)
 3. Selecciona un cultivo que puedas permitirte
 4. Haz clic en una parcela vacía para plantar
 5. Espera a que el cultivo crezca
 6. Haz clic en el cultivo maduro para cosechar
 7. Usa las monedas para comprar mejoras
+
+### Modo Mapa Interactivo (mapa-interactivo.html)
+
+1. **Navegación:**
+   - Arrastra con el mouse para mover el mapa
+   - Usa WASD o flechas del teclado para moverte
+   - Rueda del mouse o botones +/- para hacer zoom
+
+2. **Exploración:**
+   - Muévete por el mapa para descubrir diferentes zonas
+   - El minimapa (esquina inferior derecha) te ayuda a orientarte
+   - Pasa el cursor sobre las zonas para ver información
+
+3. **Interacción:**
+   - Haz clic en cualquier zona para ver detalles
+   - Presiona "Entrar" para acceder a esa zona
+   - Usa el botón 🎯 para centrar el mapa
 
 ## Sistema de Cultivos
 
