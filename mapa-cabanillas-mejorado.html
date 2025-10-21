@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cultivos de Cabanillas - Simulador Agrícola</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+            background: #1a1a1a;
+            height: 100vh;
+        }
+
+        /* Viewport principal */
+        #viewport {
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+            cursor: grab;
+        }
+
+        #viewport.dragging {
+            cursor: grabbing;
+        }
+
+        /* Contenedor del mapa mundo - TAMAÑO AUMENTADO */
+        #worldMap {
+            position: absolute;
+            width: 5500px;
+            height: 3850px;
+            background-image: url('assets/images/Fondo.jpg');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            transition: transform 0.1s ease-out;
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: crisp-edges;
+        }
+
+        /* Overlay sutil para mejorar la visibilidad de elementos */
+        .map-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.1);
+            pointer-events: none;
+        }
+
+        /* Grid opcional para ayudar con posicionamiento */
+        .grid-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image:
+                repeating-linear-gradient(0deg, transparent, transparent 99px, rgba(255,255,255,0.03) 99px, rgba(255,255,255,0.03) 100px),
+                repeating-linear-gradient(90deg, transparent, transparent 99px, rgba(255,255,255,0.03) 99px, rgba(255,255,255,0.03) 100px);
+            pointer-events: none;
+            display: none; /* Oculto por defecto */
+        }
+
+        /* Zona interactiva base */
+        .zone {
+            position: absolute;
+            border: 4px solid transparent;
+            border-radius: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: bold;
+            color: white;
+            text-shadow: 2px 2px 6px rgba(0,0,0,0.8);
+            backdrop-filter: blur(3px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+
+        .zone:hover {
+            transform: scale(1.05);
+            border-color: white;
+            box-shadow: 0 0 30px rgba(255,255,255,0.6);
+            z-index: 100;
+        }
+
+        .zone-icon {
+            font-size: 56px;
+            margin-bottom: 12px;
+            animation: float 3s ease-in-out infinite;
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-12px); }
+        }
+
+        .zone-label {
+            background: rgba(0,0,0,0.85);
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-size: 18px;
+            border: 2px solid rgba(255,255,255,0.2);
+        }
+
+        /* Tipos de zonas - colores más vivos */
+        .zone.shop {
+            background: rgba(255, 165, 0, 0.4);
+            border-color: rgba(255, 165, 0, 0.6);
+        }
+
+        .zone.shop:hover {
+            background: rgba(255, 165, 0, 0.5);
+        }
+
+        .zone.crops {
+            background: rgba(34, 139, 34, 0.4);
+            border-color: rgba(34, 139, 34, 0.6);
+        }
+
+        .zone.crops:hover {
+            background: rgba(34, 139, 34, 0.5);
+        }
+
+        .zone.storage {
+            background: rgba(139, 69, 19, 0.4);
+            border-color: rgba(139, 69, 19, 0.6);
+        }
+
+        .zone.storage:hover {
+            background: rgba(139, 69, 19, 0.5);
+        }
+
+        .zone.house {
+            background: rgba(178, 34, 34, 0.4);
+            border-color: rgba(178, 34, 34, 0.6);
+        }
+
+        .zone.house:hover {
+            background: rgba(178, 34, 34, 0.5);
+        }
+
+        /* Minimapa - ACTUALIZADO */
+        #minimap {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 330px;
+            height: 231px;
+            background: rgba(0, 0, 0, 0.85);
+            border: 3px solid rgba(255, 255, 255, 0.4);
+            border-radius: 12px;
+            overflow: hidden;
+            z-index: 1000;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+        }
+
+        .minimap-content {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            background-image: url('assets/images/Fondo.jpg');
+            background-size: cover;
+            background-position: center;
+            opacity: 0.6;
+        }
+
+        .minimap-zone {
+            position: absolute;
+            border: 2px solid white;
+            border-radius: 4px;
+            opacity: 0.8;
+        }
+
+        .minimap-zone.shop { background: rgba(255, 165, 0, 0.7); }
+        .minimap-zone.crops { background: rgba(34, 139, 34, 0.7); }
+        .minimap-zone.storage { background: rgba(139, 69, 19, 0.7); }
+        .minimap-zone.house { background: rgba(178, 34, 34, 0.7); }
+
+        .minimap-viewport {
+            position: absolute;
+            border: 3px solid #ffff00;
+            background: rgba(255, 255, 0, 0.15);
+            pointer-events: none;
+            box-shadow: 0 0 10px rgba(255,255,0,0.5);
+        }
+
+        /* Controles de navegación */
+        #controls {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 18px 35px;
+            border-radius: 10px;
+            color: white;
+            z-index: 1000;
+            text-align: center;
+            border: 2px solid rgba(255,255,255,0.3);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+
+        #controls h3 {
+            margin-bottom: 12px;
+            color: #66ff66;
+            font-size: 20px;
+        }
+
+        #controls p {
+            font-size: 14px;
+            margin: 6px 0;
+            color: #ddd;
+        }
+
+        /* Indicador de zona actual */
+        #currentZone {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 18px 28px;
+            border-radius: 10px;
+            color: white;
+            z-index: 1000;
+            min-width: 220px;
+            border: 2px solid rgba(255,255,255,0.3);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+
+        #currentZone h4 {
+            color: #66ff66;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+
+        #currentZone p {
+            font-size: 15px;
+            color: #ccc;
+        }
+
+        /* Botones de acción rápida */
+        .quick-actions {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            display: flex;
+            gap: 12px;
+            z-index: 1000;
+        }
+
+        .quick-action-btn {
+            width: 65px;
+            height: 65px;
+            background: rgba(0, 0, 0, 0.85);
+            border: 3px solid rgba(255, 255, 255, 0.4);
+            border-radius: 50%;
+            color: white;
+            font-size: 26px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+        }
+
+        .quick-action-btn:hover {
+            background: rgba(0, 0, 0, 0.95);
+            transform: scale(1.15);
+            border-color: white;
+            box-shadow: 0 6px 20px rgba(255,255,255,0.3);
+        }
+
+        /* Tooltip */
+        .tooltip {
+            position: fixed;
+            background: rgba(0, 0, 0, 0.95);
+            color: white;
+            padding: 12px 18px;
+            border-radius: 8px;
+            font-size: 15px;
+            pointer-events: none;
+            z-index: 10000;
+            display: none;
+            white-space: nowrap;
+            border: 2px solid rgba(255,255,255,0.3);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+        }
+
+        /* Modal de zona */
+        .zone-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .zone-modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%);
+            padding: 45px;
+            border-radius: 20px;
+            max-width: 650px;
+            width: 90%;
+            color: white;
+            position: relative;
+            animation: slideUp 0.4s ease;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.7);
+            border: 3px solid rgba(255,255,255,0.2);
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(80px) scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .modal-content h2 {
+            color: #66ff66;
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            font-size: 32px;
+        }
+
+        .modal-content .zone-icon {
+            font-size: 72px;
+            margin: 0;
+        }
+
+        .modal-content p {
+            line-height: 1.8;
+            margin-bottom: 25px;
+            font-size: 16px;
+            color: #ddd;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 18px;
+            margin-top: 35px;
+        }
+
+        .modal-btn {
+            flex: 1;
+            padding: 18px 35px;
+            border: none;
+            border-radius: 10px;
+            font-size: 17px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .modal-btn.primary {
+            background: linear-gradient(135deg, #4fb3d4 0%, #3da5c4 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(79,179,212,0.4);
+        }
+
+        .modal-btn.primary:hover {
+            background: linear-gradient(135deg, #3da5c4 0%, #2d95b4 100%);
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(79,179,212,0.6);
+        }
+
+        .modal-btn.secondary {
+            background: #555;
+            color: white;
+        }
+
+        .modal-btn.secondary:hover {
+            background: #666;
+            transform: translateY(-2px);
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 18px;
+            right: 18px;
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 36px;
+            cursor: pointer;
+            width: 45px;
+            height: 45px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .close-modal:hover {
+            color: #ff4444;
+            transform: rotate(90deg) scale(1.2);
+        }
+
+        /* Recursos del jugador */
+        #playerResources {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 18px 28px;
+            border-radius: 10px;
+            color: white;
+            z-index: 1000;
+            min-width: 220px;
+            border: 2px solid rgba(255,255,255,0.3);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+
+        #playerResources h4 {
+            color: #66ff66;
+            margin-bottom: 12px;
+            font-size: 18px;
+        }
+
+        .resource-item {
+            display: flex;
+            justify-content: space-between;
+            margin: 7px 0;
+            font-size: 15px;
+        }
+
+        .resource-item strong {
+            color: #66ff66;
+            font-size: 16px;
+        }
+
+        /* Zoom controls */
+        .zoom-controls {
+            position: fixed;
+            top: 120px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 1000;
+        }
+
+        .zoom-btn {
+            width: 55px;
+            height: 55px;
+            background: rgba(0, 0, 0, 0.85);
+            border: 3px solid rgba(255, 255, 255, 0.4);
+            border-radius: 10px;
+            color: white;
+            font-size: 26px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+        }
+
+        .zoom-btn:hover {
+            background: rgba(0, 0, 0, 0.95);
+            border-color: white;
+            transform: scale(1.1);
+            box-shadow: 0 6px 15px rgba(255,255,255,0.3);
+        }
+
+        /* Título del mapa */
+        .map-title {
+            position: fixed;
+            top: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 15px 40px;
+            border-radius: 12px;
+            color: white;
+            z-index: 900;
+            border: 2px solid rgba(255,255,255,0.3);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            text-align: center;
+        }
+
+        .map-title h1 {
+            font-size: 28px;
+            color: #66ff66;
+            margin-bottom: 5px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .map-title p {
+            font-size: 14px;
+            color: #aaa;
+        }
+
+        /* Marcadores de parcelas (para cuando se implementen) */
+        .crop-plot-marker {
+            position: absolute;
+            width: 70px;
+            height: 70px;
+            background: rgba(34, 139, 34, 0.3);
+            border: 3px solid rgba(34, 139, 34, 0.6);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: none; /* Oculto hasta que se implemente la funcionalidad */
+        }
+    </style>
+</head>
+<body>
+    <!-- Viewport principal -->
+    <div id="viewport">
+        <div id="worldMap">
+            <!-- Overlay sutil -->
+            <div class="map-overlay"></div>
+            
+            <!-- Grid overlay (opcional, activar con botón) -->
+            <div class="grid-overlay"></div>
+
+            <!-- ZONAS DEL PUEBLO (centro del mapa) -->
+            
+            <!-- Zona: Tienda - Ubicada en el centro del pueblo -->
+            <div class="zone shop" data-zone="shop" style="left: 2500px; top: 1750px; width: 280px; height: 240px;">
+                <div class="zone-icon">🏪</div>
+                <div class="zone-label">Tienda</div>
+            </div>
+
+            <!-- Zona: Casa - Ubicada en el pueblo -->
+            <div class="zone house" data-zone="house" style="left: 2800px; top: 1700px; width: 300px; height: 260px;">
+                <div class="zone-icon">🏠</div>
+                <div class="zone-label">Tu Casa</div>
+            </div>
+
+            <!-- Zona: Almacén - Ubicada en el pueblo -->
+            <div class="zone storage" data-zone="storage" style="left: 2600px; top: 2050px; width: 320px; height: 270px;">
+                <div class="zone-icon">📦</div>
+                <div class="zone-label">Almacén</div>
+            </div>
+
+            <!-- ZONAS DE CULTIVO (alrededor del pueblo) -->
+            
+            <!-- Zona: Área de Cultivo Norte -->
+            <div class="zone crops" data-zone="crops_north" style="left: 1200px; top: 800px; width: 600px; height: 500px;">
+                <div class="zone-icon">🌾</div>
+                <div class="zone-label">Zona de Cultivo Norte</div>
+            </div>
+
+            <!-- Zona: Área de Cultivo Oeste -->
+            <div class="zone crops" data-zone="crops_west" style="left: 800px; top: 1600px; width: 550px; height: 480px;">
+                <div class="zone-icon">🌽</div>
+                <div class="zone-label">Zona de Cultivo Oeste</div>
+            </div>
+
+            <!-- Zona: Área de Cultivo Este -->
+            <div class="zone crops" data-zone="crops_east" style="left: 3400px; top: 1400px; width: 650px; height: 550px;">
+                <div class="zone-icon">🥔</div>
+                <div class="zone-label">Zona de Cultivo Este</div>
+            </div>
+
+            <!-- Zona: Área de Cultivo Sur -->
+            <div class="zone crops" data-zone="crops_south" style="left: 2000px; top: 2600px; width: 700px; height: 550px;">
+                <div class="zone-icon">🍅</div>
+                <div class="zone-label">Zona de Cultivo Sur</div>
+            </div>
+
+            <!-- Zona: Área de Cultivo Noroeste (adicional) -->
+            <div class="zone crops" data-zone="crops_northwest" style="left: 600px; top: 600px; width: 480px; height: 450px;">
+                <div class="zone-icon">🍓</div>
+                <div class="zone-label">Zona de Cultivo Noroeste</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Título del mapa -->
+    <div class="map-title">
+        <h1>🌾 Cultivos de Cabanillas 🌾</h1>
+        <p>Simulador Agrícola - Navarra</p>
+    </div>
+
+    <!-- Controles de navegación -->
+    <div id="controls">
+        <h3>🎮 Controles</h3>
+        <p>🖱️ Arrastra para mover el mapa | ⌨️ WASD / Flechas para navegar</p>
+        <p>🔍 +/- para zoom | 👆 Click en zonas para interactuar</p>
+    </div>
+
+    <!-- Indicador de zona actual -->
+    <div id="currentZone">
+        <h4>📍 Ubicación</h4>
+        <p id="locationText">Explorando Cabanillas...</p>
+    </div>
+
+    <!-- Recursos del jugador -->
+    <div id="playerResources">
+        <h4>💰 Recursos</h4>
+        <div class="resource-item">
+            <span>Semillas:</span>
+            <strong id="seedsCount">10</strong>
+        </div>
+        <div class="resource-item">
+            <span>Monedas:</span>
+            <strong id="coinsCount">100</strong>
+        </div>
+        <div class="resource-item">
+            <span>Nivel:</span>
+            <strong id="levelCount">1</strong>
+        </div>
+    </div>
+
+    <!-- Controles de zoom -->
+    <div class="zoom-controls">
+        <button class="zoom-btn" id="zoomIn" title="Acercar">+</button>
+        <button class="zoom-btn" id="zoomOut" title="Alejar">−</button>
+        <button class="zoom-btn" id="zoomReset" style="font-size: 18px;" title="Resetear zoom">⊙</button>
+    </div>
+
+    <!-- Minimapa -->
+    <div id="minimap">
+        <div class="minimap-content">
+            <!-- Las zonas se calcularán proporcionalmente -->
+            <div class="minimap-zone shop" style="left: 45.5%; top: 45.5%; width: 5.1%; height: 6.2%;"></div>
+            <div class="minimap-zone house" style="left: 50.9%; top: 44.2%; width: 5.5%; height: 6.8%;"></div>
+            <div class="minimap-zone storage" style="left: 47.3%; top: 53.2%; width: 5.8%; height: 7%;"></div>
+            <div class="minimap-zone crops" style="left: 21.8%; top: 20.8%; width: 10.9%; height: 13%;"></div>
+            <div class="minimap-zone crops" style="left: 14.5%; top: 41.6%; width: 10%; height: 12.5%;"></div>
+            <div class="minimap-zone crops" style="left: 61.8%; top: 36.4%; width: 11.8%; height: 14.3%;"></div>
+            <div class="minimap-zone crops" style="left: 36.4%; top: 67.5%; width: 12.7%; height: 14.3%;"></div>
+            <div class="minimap-zone crops" style="left: 10.9%; top: 15.6%; width: 8.7%; height: 11.7%;"></div>
+            <div class="minimap-viewport"></div>
+        </div>
+    </div>
+
+    <!-- Botones de acción rápida -->
+    <div class="quick-actions">
+        <button class="quick-action-btn" id="centerMap" title="Centrar en pueblo">🎯</button>
+        <button class="quick-action-btn" id="toggleGrid" title="Mostrar/Ocultar grid">⊞</button>
+        <button class="quick-action-btn" id="toggleInfo" title="Información del mapa">ℹ️</button>
+    </div>
+
+    <!-- Tooltip -->
+    <div class="tooltip" id="tooltip"></div>
+
+    <!-- Modal de zona -->
+    <div class="zone-modal" id="zoneModal">
+        <div class="modal-content">
+            <button class="close-modal" id="closeZoneModal">✕</button>
+            <h2>
+                <span class="zone-icon" id="modalIcon">🏪</span>
+                <span id="modalTitle">Tienda</span>
+            </h2>
+            <p id="modalDescription">Descripción de la zona</p>
+            <div class="modal-actions">
+                <button class="modal-btn primary" id="enterZone">Entrar a la Zona</button>
+                <button class="modal-btn secondary" id="closeModal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // CONFIGURACIÓN DEL JUEGO
+        // ============================================
+
+        const WORLD_WIDTH = 5500;   // Aumentado de 3000
+        const WORLD_HEIGHT = 3850;  // Aumentado de 2000
+        const MOVE_SPEED = 20;
+        const DRAG_SPEED = 1;
+        const MIN_ZOOM = 0.3;
+        const MAX_ZOOM = 2;
+        const ZOOM_STEP = 0.15;
+
+        // ============================================
+        // ESTADO DEL JUEGO
+        // ============================================
+
+        const gameState = {
+            camera: {
+                x: 0,
+                y: 0,
+                zoom: 0.6  // Zoom inicial más alejado para ver más del mapa
+            },
+            isDragging: false,
+            dragStart: { x: 0, y: 0 },
+            keys: {},
+            currentZone: null,
+            resources: {
+                seeds: 10,
+                coins: 100,
+                level: 1
+            }
+        };
+
+        // ============================================
+        // DATOS DE ZONAS
+        // ============================================
+
+        const ZONES_DATA = {
+            shop: {
+                name: 'Tienda de Cabanillas',
+                icon: '🏪',
+                description: 'La tienda del pueblo donde puedes comprar semillas, herramientas y mejoras para tu granja. Un lugar esencial para todo agricultor.',
+                action: 'openShop'
+            },
+            house: {
+                name: 'Tu Casa en Cabanillas',
+                icon: '🏠',
+                description: 'Tu hogar en el pueblo. Aquí puedes descansar, mejorar tus habilidades y planificar tu estrategia agrícola.',
+                action: 'openHouse'
+            },
+            storage: {
+                name: 'Almacén Municipal',
+                icon: '📦',
+                description: 'El almacén donde guardas tus cosechas. Mejóralo para aumentar tu capacidad de almacenamiento.',
+                action: 'openStorage'
+            },
+            crops_north: {
+                name: 'Campos del Norte',
+                icon: '🌾',
+                description: 'Zona de cultivo al norte de Cabanillas. Terreno ideal para cereales y cultivos de temporada fría.',
+                action: 'openCropArea'
+            },
+            crops_west: {
+                name: 'Campos del Oeste',
+                icon: '🌽',
+                description: 'Campos al oeste del pueblo. Suelo fértil perfecto para maíz y hortalizas variadas.',
+                action: 'openCropArea'
+            },
+            crops_east: {
+                name: 'Campos del Este',
+                icon: '🥔',
+                description: 'Extensas tierras al este. Excelente drenaje, ideal para cultivos de raíz como patatas.',
+                action: 'openCropArea'
+            },
+            crops_south: {
+                name: 'Campos del Sur',
+                icon: '🍅',
+                description: 'Zona sur con máxima exposición solar. Perfecta para tomates, pimientos y cultivos de verano.',
+                action: 'openCropArea'
+            },
+            crops_northwest: {
+                name: 'Campos del Noroeste',
+                icon: '🍓',
+                description: 'Pequeña parcela al noroeste. Ideal para fresas y cultivos especiales que requieren cuidado intensivo.',
+                action: 'openCropArea'
+            }
+        };
+
+        // ============================================
+        // ELEMENTOS DEL DOM
+        // ============================================
+
+        const viewport = document.getElementById('viewport');
+        const worldMap = document.getElementById('worldMap');
+        const minimapViewport = document.querySelector('.minimap-viewport');
+        const locationText = document.getElementById('locationText');
+        const zoneModal = document.getElementById('zoneModal');
+        const tooltip = document.getElementById('tooltip');
+
+        // ============================================
+        // INICIALIZACIÓN
+        // ============================================
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeCamera();
+            setupEventListeners();
+            updateCamera();
+            updateMinimap();
+            startGameLoop();
+            
+            // Mensaje de bienvenida
+            setTimeout(() => {
+                console.log('🌾 ¡Bienvenido a Cultivos de Cabanillas! 🌾');
+                console.log('📍 Explora el mapa interactivo del municipio');
+                console.log('🎯 Haz clic en las zonas para interactuar');
+            }, 1000);
+        });
+
+        function initializeCamera() {
+            // Centrar la cámara en el pueblo (centro del mapa)
+            const centerX = 2700; // Centro aproximado del pueblo
+            const centerY = 1900;
+            
+            gameState.camera.x = -(centerX * gameState.camera.zoom - window.innerWidth / 2);
+            gameState.camera.y = -(centerY * gameState.camera.zoom - window.innerHeight / 2);
+        }
+
+        // ============================================
+        // EVENT LISTENERS
+        // ============================================
+
+        function setupEventListeners() {
+            // Drag del mapa
+            viewport.addEventListener('mousedown', handleDragStart);
+            document.addEventListener('mousemove', handleDragMove);
+            document.addEventListener('mouseup', handleDragEnd);
+
+            // Teclas de movimiento
+            document.addEventListener('keydown', (e) => {
+                gameState.keys[e.key.toLowerCase()] = true;
+
+                // Prevenir scroll con flechas
+                if(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                    e.preventDefault();
+                }
+            });
+
+            document.addEventListener('keyup', (e) => {
+                gameState.keys[e.key.toLowerCase()] = false;
+            });
+
+            // Zoom con rueda del mouse
+            viewport.addEventListener('wheel', handleWheel, { passive: false });
+
+            // Botones de zoom
+            document.getElementById('zoomIn').addEventListener('click', () => zoomCamera(ZOOM_STEP));
+            document.getElementById('zoomOut').addEventListener('click', () => zoomCamera(-ZOOM_STEP));
+            document.getElementById('zoomReset').addEventListener('click', () => {
+                gameState.camera.zoom = 0.6;
+                updateCamera();
+            });
+
+            // Botón centrar mapa
+            document.getElementById('centerMap').addEventListener('click', initializeCamera);
+
+            // Toggle grid
+            document.getElementById('toggleGrid').addEventListener('click', () => {
+                const grid = document.querySelector('.grid-overlay');
+                grid.style.display = grid.style.display === 'none' ? 'block' : 'none';
+            });
+
+            // Toggle info
+            document.getElementById('toggleInfo').addEventListener('click', () => {
+                alert('🗺️ Mapa de Cabanillas (Navarra)\n\n' +
+                      '📍 Pueblo: Centro del mapa\n' +
+                      '🌾 Zonas de cultivo: Alrededor del pueblo\n' +
+                      '🏪 Edificios: Tienda, Casa, Almacén\n\n' +
+                      'Explora todas las áreas para descubrir oportunidades de cultivo.');
+            });
+
+            // Zonas interactivas
+            document.querySelectorAll('.zone').forEach(zone => {
+                zone.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    openZoneModal(zone.dataset.zone);
+                });
+
+                zone.addEventListener('mouseenter', (e) => {
+                    const zoneData = ZONES_DATA[zone.dataset.zone];
+                    showTooltip(e, zoneData.name);
+                });
+
+                zone.addEventListener('mouseleave', hideTooltip);
+                
+                zone.addEventListener('mousemove', (e) => {
+                    updateTooltipPosition(e);
+                });
+            });
+
+            // Modal
+            document.getElementById('closeZoneModal').addEventListener('click', closeZoneModal);
+            document.getElementById('closeModal').addEventListener('click', closeZoneModal);
+            document.getElementById('enterZone').addEventListener('click', enterCurrentZone);
+
+            // Cerrar modal al hacer clic fuera
+            zoneModal.addEventListener('click', (e) => {
+                if (e.target === zoneModal) closeZoneModal();
+            });
+        }
+
+        // ============================================
+        // SISTEMA DE CÁMARA
+        // ============================================
+
+        function updateCamera() {
+            // Limitar la cámara a los bordes del mapa
+            const maxX = 0;
+            const minX = -(WORLD_WIDTH * gameState.camera.zoom - window.innerWidth);
+            const maxY = 0;
+            const minY = -(WORLD_HEIGHT * gameState.camera.zoom - window.innerHeight);
+
+            gameState.camera.x = Math.max(minX, Math.min(maxX, gameState.camera.x));
+            gameState.camera.y = Math.max(minY, Math.min(maxY, gameState.camera.y));
+
+            // Aplicar transformación
+            worldMap.style.transform = `
+                translate(${gameState.camera.x}px, ${gameState.camera.y}px)
+                scale(${gameState.camera.zoom})
+            `;
+
+            updateMinimap();
+        }
+
+        function zoomCamera(delta) {
+            const oldZoom = gameState.camera.zoom;
+            gameState.camera.zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, gameState.camera.zoom + delta));
+            
+            // Ajustar posición para hacer zoom hacia el centro
+            const zoomRatio = gameState.camera.zoom / oldZoom;
+            const centerX = window.innerWidth / 2;
+            const centerY = window.innerHeight / 2;
+            
+            gameState.camera.x = centerX - (centerX - gameState.camera.x) * zoomRatio;
+            gameState.camera.y = centerY - (centerY - gameState.camera.y) * zoomRatio;
+            
+            updateCamera();
+        }
+
+        // ============================================
+        // CONTROLES DE MOVIMIENTO
+        // ============================================
+
+        function handleDragStart(e) {
+            if (e.target.classList.contains('zone') || e.target.closest('.zone')) return;
+
+            gameState.isDragging = true;
+            gameState.dragStart = {
+                x: e.clientX - gameState.camera.x,
+                y: e.clientY - gameState.camera.y
+            };
+            viewport.classList.add('dragging');
+        }
+
+        function handleDragMove(e) {
+            if (!gameState.isDragging) return;
+
+            gameState.camera.x = e.clientX - gameState.dragStart.x;
+            gameState.camera.y = e.clientY - gameState.dragStart.y;
+
+            updateCamera();
+        }
+
+        function handleDragEnd() {
+            gameState.isDragging = false;
+            viewport.classList.remove('dragging');
+        }
+
+        function handleWheel(e) {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
+            zoomCamera(delta);
+        }
+
+        function handleKeyboardMovement() {
+            let moved = false;
+            const speed = MOVE_SPEED * (1 / gameState.camera.zoom); // Ajustar velocidad según zoom
+
+            if (gameState.keys['w'] || gameState.keys['arrowup']) {
+                gameState.camera.y += speed;
+                moved = true;
+            }
+            if (gameState.keys['s'] || gameState.keys['arrowdown']) {
+                gameState.camera.y -= speed;
+                moved = true;
+            }
+            if (gameState.keys['a'] || gameState.keys['arrowleft']) {
+                gameState.camera.x += speed;
+                moved = true;
+            }
+            if (gameState.keys['d'] || gameState.keys['arrowright']) {
+                gameState.camera.x -= speed;
+                moved = true;
+            }
+
+            if (moved) {
+                updateCamera();
+            }
+        }
+
+        // ============================================
+        // MINIMAPA
+        // ============================================
+
+        function updateMinimap() {
+            const scaleX = 330 / WORLD_WIDTH;
+            const scaleY = 231 / WORLD_HEIGHT;
+
+            const viewportWidth = window.innerWidth / gameState.camera.zoom;
+            const viewportHeight = window.innerHeight / gameState.camera.zoom;
+
+            const minimapX = (-gameState.camera.x / gameState.camera.zoom) * scaleX;
+            const minimapY = (-gameState.camera.y / gameState.camera.zoom) * scaleY;
+            const minimapW = viewportWidth * scaleX;
+            const minimapH = viewportHeight * scaleY;
+
+            minimapViewport.style.left = `${minimapX}px`;
+            minimapViewport.style.top = `${minimapY}px`;
+            minimapViewport.style.width = `${minimapW}px`;
+            minimapViewport.style.height = `${minimapH}px`;
+        }
+
+        // ============================================
+        // SISTEMA DE ZONAS
+        // ============================================
+
+        function openZoneModal(zoneId) {
+            const zoneData = ZONES_DATA[zoneId];
+            gameState.currentZone = zoneId;
+
+            document.getElementById('modalIcon').textContent = zoneData.icon;
+            document.getElementById('modalTitle').textContent = zoneData.name;
+            document.getElementById('modalDescription').textContent = zoneData.description;
+
+            zoneModal.classList.add('active');
+        }
+
+        function closeZoneModal() {
+            zoneModal.classList.remove('active');
+            gameState.currentZone = null;
+        }
+
+        function enterCurrentZone() {
+            if (!gameState.currentZone) return;
+
+            const zoneData = ZONES_DATA[gameState.currentZone];
+
+            // Ejecutar acción de la zona
+            switch(zoneData.action) {
+                case 'openShop':
+                    alert('🏪 Abriendo tienda de Cabanillas...\n(Esta funcionalidad se implementará próximamente)');
+                    break;
+                case 'openCropArea':
+                    alert('🌾 Accediendo al área de cultivo...\n(Aquí podrás plantar y gestionar tus cultivos)');
+                    break;
+                case 'openStorage':
+                    alert('📦 Abriendo almacén...\n(Gestiona tu inventario y cosechas aquí)');
+                    break;
+                case 'openHouse':
+                    alert('🏠 Entrando a tu casa...\n(Mejora tus habilidades y descansa)');
+                    break;
+            }
+
+            closeZoneModal();
+        }
+
+        // ============================================
+        // TOOLTIPS
+        // ============================================
+
+        function showTooltip(e, text) {
+            tooltip.textContent = text;
+            tooltip.style.display = 'block';
+            updateTooltipPosition(e);
+        }
+
+        function hideTooltip() {
+            tooltip.style.display = 'none';
+        }
+
+        function updateTooltipPosition(e) {
+            const x = e.clientX + 15;
+            const y = e.clientY + 15;
+
+            // Asegurar que el tooltip no se salga de la pantalla
+            const rect = tooltip.getBoundingClientRect();
+            const maxX = window.innerWidth - rect.width - 10;
+            const maxY = window.innerHeight - rect.height - 10;
+
+            tooltip.style.left = `${Math.min(x, maxX)}px`;
+            tooltip.style.top = `${Math.min(y, maxY)}px`;
+        }
+
+        // ============================================
+        // DETECCIÓN DE ZONA
+        // ============================================
+
+        function checkCurrentLocation() {
+            const centerX = -gameState.camera.x / gameState.camera.zoom + window.innerWidth / (2 * gameState.camera.zoom);
+            const centerY = -gameState.camera.y / gameState.camera.zoom + window.innerHeight / (2 * gameState.camera.zoom);
+
+            const zones = document.querySelectorAll('.zone');
+            let foundZone = null;
+
+            zones.forEach(zone => {
+                const zoneX = parseFloat(zone.style.left);
+                const zoneY = parseFloat(zone.style.top);
+                const zoneW = parseFloat(zone.style.width);
+                const zoneH = parseFloat(zone.style.height);
+
+                if (centerX >= zoneX && centerX <= zoneX + zoneW &&
+                    centerY >= zoneY && centerY <= zoneY + zoneH) {
+                    foundZone = ZONES_DATA[zone.dataset.zone];
+                }
+            });
+
+            if (foundZone) {
+                locationText.textContent = `Cerca de: ${foundZone.name}`;
+            } else {
+                locationText.textContent = 'Explorando Cabanillas...';
+            }
+        }
+
+        // ============================================
+        // GAME LOOP
+        // ============================================
+
+        function startGameLoop() {
+            setInterval(() => {
+                handleKeyboardMovement();
+                checkCurrentLocation();
+            }, 16); // ~60 FPS
+        }
+
+        console.log('🗺️ ¡Mapa de Cabanillas cargado exitosamente! 🗺️');
+        console.log('📐 Dimensiones: ' + WORLD_WIDTH + 'x' + WORLD_HEIGHT + ' píxeles');
+    </script>
+</body>
+</html>
