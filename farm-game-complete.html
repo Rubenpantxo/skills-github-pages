@@ -14,8 +14,26 @@
         body {
             font-family: 'Arial', sans-serif;
             overflow: hidden;
-            background: linear-gradient(135deg, #4fb3d4 0%, #2d8ca8 100%);
+            background: linear-gradient(135deg, #0f2c4f 0%, #0a1d33 100%);
             height: 100vh;
+        }
+
+        .map-viewport {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+            background: radial-gradient(circle at top right, rgba(15, 76, 117, 0.4), transparent 55%),
+                        radial-gradient(circle at bottom left, rgba(12, 35, 64, 0.6), transparent 50%),
+                        linear-gradient(135deg, #1b4c7a 0%, #0a233d 100%);
+            cursor: grab;
+            touch-action: none;
+        }
+
+        .map-viewport.dragging {
+            cursor: grabbing;
         }
 
         .shop-button {
@@ -62,11 +80,21 @@
         }
 
         .farm-scene {
+            position: absolute;
+            top: 0;
+            left: 0;
+            transform-origin: top left;
+            will-change: transform;
+            user-select: none;
+        }
+
+        .map-background {
+            display: block;
             width: 100%;
-            height: 100vh;
-            position: relative;
-            overflow: hidden;
-            background: linear-gradient(135deg, #4fb3d4 0%, #3da5c4 50%, #2d8ca8 100%);
+            height: auto;
+            pointer-events: none;
+            user-select: none;
+            filter: saturate(1.05) contrast(1.05);
         }
 
         .plot {
@@ -595,10 +623,14 @@
     </button>
 
     <div class="top-message" id="topMessage">
-        Haz clic en el botón de tienda en la esquina superior izquierda para comprar cultivos.
+        Explora Cabanillas arrastrando el mapa y usa el botón de tienda en la esquina superior izquierda para comprar cultivos.
     </div>
 
-    <div class="farm-scene" id="farmScene"></div>
+    <div class="map-viewport" id="mapViewport">
+        <div class="farm-scene" id="farmScene">
+            <img src="assets/images/Fondo.jpg" alt="Mapa de Cabanillas" class="map-background" id="mapBackground">
+        </div>
+    </div>
 
     <div class="info-panel" id="infoPanel" style="display: none;">
         <div class="info-header">
@@ -718,6 +750,238 @@
     <button class="back-button" id="backButton" style="display: none;">Volver</button>
 
     <script>
+        const MAP_CAMERA = {
+            x: 0,
+            y: 0,
+            zoom: 0.85,
+            minZoom: 0.45,
+            maxZoom: 1.9,
+            zoomStep: 0.15
+        };
+
+        const MAP_STATE = {
+            viewport: null,
+            scene: null,
+            background: null,
+            pointerActive: false,
+            hasDragged: false,
+            pointerId: null,
+            startPointer: { x: 0, y: 0 },
+            startCamera: { x: 0, y: 0 },
+            dimensions: { width: 0, height: 0 }
+        };
+
+        const INITIAL_PLOT_POSITIONS = [
+            { x: 1380, y: 1520 },
+            { x: 1560, y: 1580 },
+            { x: 1740, y: 1640 },
+            { x: 1380, y: 1720 },
+            { x: 1560, y: 1780 },
+            { x: 1740, y: 1840 }
+        ];
+
+        const EXPANSION_PLOT_POSITIONS = [
+            { x: 1980, y: 1920 },
+            { x: 2160, y: 1980 },
+            { x: 2340, y: 2040 }
+        ];
+
+        const ALL_PLOT_POSITIONS = [...INITIAL_PLOT_POSITIONS, ...EXPANSION_PLOT_POSITIONS];
+
+        function clamp(value, min, max) {
+            return Math.min(max, Math.max(min, value));
+        }
+
+        function applyMapTransform() {
+            if (!MAP_STATE.scene) {
+                return;
+            }
+
+            MAP_STATE.scene.style.transform = `translate(${MAP_CAMERA.x}px, ${MAP_CAMERA.y}px) scale(${MAP_CAMERA.zoom})`;
+        }
+
+        function updateMapBounds() {
+            if (!MAP_STATE.viewport || !MAP_STATE.scene || !MAP_STATE.dimensions.width || !MAP_STATE.dimensions.height) {
+                return;
+            }
+
+            const viewportWidth = MAP_STATE.viewport.clientWidth;
+            const viewportHeight = MAP_STATE.viewport.clientHeight;
+            const mapWidth = MAP_STATE.dimensions.width * MAP_CAMERA.zoom;
+            const mapHeight = MAP_STATE.dimensions.height * MAP_CAMERA.zoom;
+
+            if (mapWidth <= viewportWidth) {
+                MAP_CAMERA.x = (viewportWidth - mapWidth) / 2;
+            } else {
+                const minX = viewportWidth - mapWidth;
+                MAP_CAMERA.x = Math.min(0, Math.max(minX, MAP_CAMERA.x));
+            }
+
+            if (mapHeight <= viewportHeight) {
+                MAP_CAMERA.y = (viewportHeight - mapHeight) / 2;
+            } else {
+                const minY = viewportHeight - mapHeight;
+                MAP_CAMERA.y = Math.min(0, Math.max(minY, MAP_CAMERA.y));
+            }
+        }
+
+        function centerMapOn(mapX, mapY) {
+            if (!MAP_STATE.viewport) {
+                return;
+            }
+
+            const viewportWidth = MAP_STATE.viewport.clientWidth;
+            const viewportHeight = MAP_STATE.viewport.clientHeight;
+
+            MAP_CAMERA.x = viewportWidth / 2 - mapX * MAP_CAMERA.zoom;
+            MAP_CAMERA.y = viewportHeight / 2 - mapY * MAP_CAMERA.zoom;
+
+            updateMapBounds();
+            applyMapTransform();
+        }
+
+        function handleMapWheel(event) {
+            if (!MAP_STATE.viewport || !MAP_STATE.dimensions.width) {
+                return;
+            }
+
+            event.preventDefault();
+
+            const zoomFactor = event.deltaY < 0 ? 1 + MAP_CAMERA.zoomStep : 1 / (1 + MAP_CAMERA.zoomStep);
+            const newZoom = clamp(MAP_CAMERA.zoom * zoomFactor, MAP_CAMERA.minZoom, MAP_CAMERA.maxZoom);
+
+            const rect = MAP_STATE.viewport.getBoundingClientRect();
+            const pointerX = event.clientX - rect.left;
+            const pointerY = event.clientY - rect.top;
+
+            const mapX = (pointerX - MAP_CAMERA.x) / MAP_CAMERA.zoom;
+            const mapY = (pointerY - MAP_CAMERA.y) / MAP_CAMERA.zoom;
+
+            MAP_CAMERA.zoom = newZoom;
+            MAP_CAMERA.x = pointerX - mapX * MAP_CAMERA.zoom;
+            MAP_CAMERA.y = pointerY - mapY * MAP_CAMERA.zoom;
+
+            updateMapBounds();
+            applyMapTransform();
+        }
+
+        function handlePointerDown(event) {
+            if (!MAP_STATE.viewport) {
+                return;
+            }
+
+            if (typeof event.button !== 'undefined' && event.button !== 0) {
+                return;
+            }
+
+            MAP_STATE.pointerActive = true;
+            MAP_STATE.hasDragged = false;
+            MAP_STATE.pointerId = event.pointerId;
+            MAP_STATE.startPointer.x = event.clientX;
+            MAP_STATE.startPointer.y = event.clientY;
+            MAP_STATE.startCamera.x = MAP_CAMERA.x;
+            MAP_STATE.startCamera.y = MAP_CAMERA.y;
+        }
+
+        function handlePointerMove(event) {
+            if (!MAP_STATE.pointerActive || MAP_STATE.pointerId !== event.pointerId) {
+                return;
+            }
+
+            const deltaX = event.clientX - MAP_STATE.startPointer.x;
+            const deltaY = event.clientY - MAP_STATE.startPointer.y;
+
+            if (!MAP_STATE.hasDragged) {
+                if (Math.abs(deltaX) < 5 && Math.abs(deltaY) < 5) {
+                    return;
+                }
+
+                MAP_STATE.hasDragged = true;
+                MAP_STATE.viewport.classList.add('dragging');
+
+                if (MAP_STATE.viewport.setPointerCapture) {
+                    MAP_STATE.viewport.setPointerCapture(event.pointerId);
+                }
+            }
+
+            MAP_CAMERA.x = MAP_STATE.startCamera.x + deltaX;
+            MAP_CAMERA.y = MAP_STATE.startCamera.y + deltaY;
+
+            updateMapBounds();
+            applyMapTransform();
+        }
+
+        function handlePointerUp(event) {
+            if (MAP_STATE.pointerId !== event.pointerId) {
+                return;
+            }
+
+            MAP_STATE.pointerActive = false;
+            MAP_STATE.hasDragged = false;
+            MAP_STATE.pointerId = null;
+            MAP_STATE.viewport.classList.remove('dragging');
+
+            if (MAP_STATE.viewport.releasePointerCapture && MAP_STATE.viewport.hasPointerCapture && MAP_STATE.viewport.hasPointerCapture(event.pointerId)) {
+                MAP_STATE.viewport.releasePointerCapture(event.pointerId);
+            }
+        }
+
+        function setupMapControls() {
+            MAP_STATE.viewport = document.getElementById('mapViewport');
+            MAP_STATE.scene = document.getElementById('farmScene');
+            MAP_STATE.background = document.getElementById('mapBackground');
+
+            if (!MAP_STATE.viewport || !MAP_STATE.scene || !MAP_STATE.background) {
+                return;
+            }
+
+            const applyInitialLayout = () => {
+                if (!MAP_STATE.background.naturalWidth || !MAP_STATE.background.naturalHeight) {
+                    return;
+                }
+
+                MAP_STATE.dimensions.width = MAP_STATE.background.naturalWidth;
+                MAP_STATE.dimensions.height = MAP_STATE.background.naturalHeight;
+
+                MAP_STATE.scene.style.width = `${MAP_STATE.dimensions.width}px`;
+                MAP_STATE.scene.style.height = `${MAP_STATE.dimensions.height}px`;
+
+                const viewportWidth = MAP_STATE.viewport.clientWidth;
+                const viewportHeight = MAP_STATE.viewport.clientHeight;
+                const widthRatio = viewportWidth / MAP_STATE.dimensions.width;
+                const heightRatio = viewportHeight / MAP_STATE.dimensions.height;
+                const targetZoom = Math.min(widthRatio, heightRatio) * 0.9;
+
+                MAP_CAMERA.zoom = clamp(targetZoom || MAP_CAMERA.zoom, MAP_CAMERA.minZoom, MAP_CAMERA.maxZoom);
+
+                const focusPlot = INITIAL_PLOT_POSITIONS[0];
+                const focusX = focusPlot ? focusPlot.x + 75 : MAP_STATE.dimensions.width / 2;
+                const focusY = focusPlot ? focusPlot.y + 60 : MAP_STATE.dimensions.height / 2;
+
+                centerMapOn(focusX, focusY);
+            };
+
+            if (MAP_STATE.background.complete) {
+                applyInitialLayout();
+            } else {
+                MAP_STATE.background.addEventListener('load', applyInitialLayout);
+            }
+
+            MAP_STATE.viewport.addEventListener('wheel', handleMapWheel, { passive: false });
+            MAP_STATE.viewport.addEventListener('pointerdown', handlePointerDown);
+            MAP_STATE.viewport.addEventListener('pointermove', handlePointerMove);
+            MAP_STATE.viewport.addEventListener('pointerup', handlePointerUp);
+            MAP_STATE.viewport.addEventListener('pointercancel', handlePointerUp);
+            MAP_STATE.viewport.addEventListener('pointerleave', handlePointerUp);
+
+            window.addEventListener('resize', () => {
+                updateMapBounds();
+                applyMapTransform();
+            });
+
+            applyMapTransform();
+        }
+
         const GAME_CONFIG = {
             crops: {
                 wheat: {
@@ -819,25 +1083,17 @@
         };
 
         document.addEventListener('DOMContentLoaded', () => {
+            setupMapControls();
             initializePlots();
             setupEventListeners();
             updateResourceDisplay();
             loadGameState();
-            updateTopMessage('Haz clic en el botón de tienda en la esquina superior izquierda para comprar cultivos.');
+            updateTopMessage('Explora Cabanillas arrastrando el mapa y usa la tienda para conseguir nuevos cultivos.');
         });
 
         function initializePlots() {
             const farmScene = document.getElementById('farmScene');
-            const positions = [
-                { x: 300, y: 300 },
-                { x: 480, y: 360 },
-                { x: 660, y: 420 },
-                { x: 300, y: 450 },
-                { x: 480, y: 510 },
-                { x: 660, y: 570 }
-            ];
-            
-            positions.forEach((pos, index) => {
+            INITIAL_PLOT_POSITIONS.forEach((pos, index) => {
                 const plot = createPlot(index, pos.x, pos.y);
                 farmScene.appendChild(plot);
                 gameState.plots.push({
@@ -1212,14 +1468,8 @@
         function expandFarm() {
             const farmScene = document.getElementById('farmScene');
             const currentPlots = gameState.plots.length;
-            
-            const newPositions = [
-                { x: 300, y: 600 },
-                { x: 480, y: 660 },
-                { x: 660, y: 720 }
-            ];
-            
-            newPositions.forEach((pos, index) => {
+
+            EXPANSION_PLOT_POSITIONS.forEach((pos, index) => {
                 const newId = currentPlots + index;
                 const plot = createPlot(newId, pos.x, pos.y);
                 farmScene.appendChild(plot);
@@ -1233,8 +1483,40 @@
                     ready: false
                 });
             });
-            
+
             updateTopMessage('¡Granja expandida! Ahora tienes más parcelas para cultivar.');
+        }
+
+        function ensurePlotsForSave(savedPlots) {
+            if (!Array.isArray(savedPlots)) {
+                return;
+            }
+
+            const farmScene = document.getElementById('farmScene');
+
+            [...savedPlots]
+                .sort((a, b) => a.id - b.id)
+                .forEach(savedPlot => {
+                    if (savedPlot.id >= ALL_PLOT_POSITIONS.length) {
+                        return;
+                    }
+
+                    if (!gameState.plots[savedPlot.id]) {
+                        const position = ALL_PLOT_POSITIONS[savedPlot.id];
+                        const plotElement = createPlot(savedPlot.id, position.x, position.y);
+                        farmScene.appendChild(plotElement);
+
+                        gameState.plots[savedPlot.id] = {
+                            id: savedPlot.id,
+                            element: plotElement,
+                            crop: null,
+                            growthProgress: 0,
+                            growthInterval: null,
+                            startTime: null,
+                            ready: false
+                        };
+                    }
+                });
         }
 
         function updateResourceDisplay() {
@@ -1284,15 +1566,23 @@
                 const data = JSON.parse(savedData);
                 gameState.seeds = data.seeds;
                 gameState.coins = data.coins;
-                gameState.upgrades = data.upgrades;
-                
+                gameState.upgrades = {
+                    ...gameState.upgrades,
+                    ...data.upgrades
+                };
+
+                ensurePlotsForSave(data.plots);
+
                 data.plots.forEach(savedPlot => {
                     if (savedPlot.crop) {
                         const plot = gameState.plots[savedPlot.id];
+                        if (!plot) {
+                            return;
+                        }
                         plot.crop = savedPlot.crop;
                         plot.ready = savedPlot.ready;
                         plot.startTime = savedPlot.startTime;
-                        
+
                         const crop = GAME_CONFIG.crops[savedPlot.crop];
                         
                         plot.element.classList.add('planted');
@@ -1308,8 +1598,9 @@
                         }
                     }
                 });
-                
+
                 updateResourceDisplay();
+                updateShopAffordability();
             }
         }
 
