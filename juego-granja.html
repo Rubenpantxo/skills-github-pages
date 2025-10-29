@@ -14,8 +14,49 @@
         body {
             font-family: 'Arial', sans-serif;
             overflow: hidden;
-            background: linear-gradient(135deg, #4fb3d4 0%, #2d8ca8 100%);
+            background: #0b1d2d;
+            color: white;
             height: 100vh;
+        }
+
+        .map-viewport {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            cursor: grab;
+            z-index: 1;
+            touch-action: none;
+        }
+
+        .map-viewport.dragging {
+            cursor: grabbing;
+        }
+
+        .farm-scene {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 7000px;
+            height: 5000px;
+            background-image: url('assets/images/Fondo.jpg');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            transform-origin: top left;
+        }
+
+        .map-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(180deg, rgba(10, 29, 45, 0.25), rgba(10, 29, 45, 0.05));
+            pointer-events: none;
+            z-index: 1;
         }
 
         .shop-button {
@@ -61,52 +102,51 @@
             to { opacity: 1; transform: translateX(-50%) translateY(0); }
         }
 
-        .farm-scene {
-            width: 100%;
-            height: 100vh;
-            position: relative;
-            overflow: hidden;
-            background: linear-gradient(135deg, #4fb3d4 0%, #3da5c4 50%, #2d8ca8 100%);
-        }
-
         .plot {
             position: absolute;
-            width: 150px;
-            height: 120px;
+            width: 220px;
+            height: 160px;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            transform-origin: center;
+            z-index: 5;
         }
 
         .plot-ground {
             width: 100%;
             height: 100%;
-            background: #8b7355;
-            transform: rotateX(60deg) rotateZ(45deg);
-            transform-style: preserve-3d;
-            border: 2px solid #6d5a45;
+            background: rgba(139, 115, 85, 0.85);
+            border: 3px solid rgba(109, 90, 69, 0.85);
+            border-radius: 18px;
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
             position: relative;
-            transition: all 0.3s ease;
+            transition: filter 0.3s ease, border-color 0.3s ease;
+            backdrop-filter: blur(2px);
+        }
+
+        .plot:hover {
+            transform: scale(1.05);
         }
 
         .plot:hover .plot-ground {
-            filter: brightness(1.2);
+            filter: brightness(1.15);
         }
 
         .plot.selected .plot-ground {
-            border: 3px solid yellow;
-            box-shadow: 0 0 20px rgba(255, 255, 0, 0.5);
+            border: 3px solid rgba(255, 255, 0, 0.9);
+            box-shadow: 0 0 30px rgba(255, 255, 0, 0.45);
         }
 
         .plot.planted .plot-ground {
-            background: #6b5940;
+            background: rgba(107, 89, 64, 0.95);
         }
 
         .crop-visual {
             position: absolute;
-            top: -40px;
+            top: 50%;
             left: 50%;
-            transform: translateX(-50%);
-            font-size: 50px;
+            transform: translate(-50%, -50%);
+            font-size: 52px;
             transition: all 0.3s ease;
             opacity: 0;
             animation: growCrop 0.5s ease forwards;
@@ -115,11 +155,11 @@
         @keyframes growCrop {
             from {
                 opacity: 0;
-                transform: translateX(-50%) scale(0);
+                transform: translate(-50%, -50%) scale(0);
             }
             to {
                 opacity: 1;
-                transform: translateX(-50%) scale(1);
+                transform: translate(-50%, -50%) scale(1);
             }
         }
 
@@ -598,7 +638,11 @@
         Haz clic en el botón de tienda en la esquina superior izquierda para comprar cultivos.
     </div>
 
-    <div class="farm-scene" id="farmScene"></div>
+    <div class="map-viewport" id="mapViewport">
+        <div class="farm-scene" id="farmScene">
+            <div class="map-overlay"></div>
+        </div>
+    </div>
 
     <div class="info-panel" id="infoPanel" style="display: none;">
         <div class="info-header">
@@ -718,6 +762,17 @@
     <button class="back-button" id="backButton" style="display: none;">Volver</button>
 
     <script>
+        const MAP_WIDTH = 7000;
+        const MAP_HEIGHT = 5000;
+        const MIN_ZOOM = 0.25;
+        const MAX_ZOOM = 1.25;
+        const ZOOM_STEP = 0.08;
+        const MOVE_SPEED = 40;
+        const INITIAL_FOCUS = { x: 2600, y: 2400 };
+
+        let viewportElement;
+        let farmSceneElement;
+
         const GAME_CONFIG = {
             crops: {
                 wheat: {
@@ -815,28 +870,43 @@
                 expand: false,
                 shovel: false
             },
-            growthSpeedMultiplier: 1
+            growthSpeedMultiplier: 1,
+            camera: {
+                x: 0,
+                y: 0,
+                zoom: 0.35
+            },
+            isDragging: false,
+            dragStart: { x: 0, y: 0 },
+            dragPointerId: null,
+            keys: {}
         };
 
         document.addEventListener('DOMContentLoaded', () => {
+            viewportElement = document.getElementById('mapViewport');
+            farmSceneElement = document.getElementById('farmScene');
+
             initializePlots();
+            initializeCamera();
+            setupCameraControls();
             setupEventListeners();
             updateResourceDisplay();
             loadGameState();
             updateTopMessage('Haz clic en el botón de tienda en la esquina superior izquierda para comprar cultivos.');
+            animationLoop();
         });
 
         function initializePlots() {
             const farmScene = document.getElementById('farmScene');
             const positions = [
-                { x: 300, y: 300 },
-                { x: 480, y: 360 },
-                { x: 660, y: 420 },
-                { x: 300, y: 450 },
-                { x: 480, y: 510 },
-                { x: 660, y: 570 }
+                { x: 2150, y: 2050 },
+                { x: 2400, y: 2150 },
+                { x: 2650, y: 2250 },
+                { x: 2150, y: 2350 },
+                { x: 2400, y: 2450 },
+                { x: 2650, y: 2550 }
             ];
-            
+
             positions.forEach((pos, index) => {
                 const plot = createPlot(index, pos.x, pos.y);
                 farmScene.appendChild(plot);
@@ -850,6 +920,190 @@
                     ready: false
                 });
             });
+        }
+
+        function initializeCamera() {
+            const initialZoom = gameState.camera.zoom;
+            const focusX = INITIAL_FOCUS.x;
+            const focusY = INITIAL_FOCUS.y;
+
+            gameState.camera.x = window.innerWidth / 2 - focusX * initialZoom;
+            gameState.camera.y = window.innerHeight / 2 - focusY * initialZoom;
+
+            updateCamera();
+        }
+
+        function setupCameraControls() {
+            if (!viewportElement) return;
+
+            viewportElement.addEventListener('pointerdown', handlePointerDown);
+            window.addEventListener('pointermove', handlePointerMove);
+            window.addEventListener('pointerup', handlePointerUp);
+            viewportElement.addEventListener('pointerleave', handlePointerUp);
+            window.addEventListener('pointercancel', handlePointerUp);
+            viewportElement.addEventListener('wheel', handleWheel, { passive: false });
+            window.addEventListener('keydown', handleKeyDown);
+            window.addEventListener('keyup', handleKeyUp);
+            window.addEventListener('resize', updateCamera);
+        }
+
+        function updateCamera() {
+            if (!farmSceneElement) return;
+
+            const scaledWidth = MAP_WIDTH * gameState.camera.zoom;
+            const scaledHeight = MAP_HEIGHT * gameState.camera.zoom;
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+
+            if (scaledWidth <= viewportWidth) {
+                gameState.camera.x = (viewportWidth - scaledWidth) / 2;
+            } else {
+                const maxX = 0;
+                const minX = -(scaledWidth - viewportWidth);
+                gameState.camera.x = Math.max(minX, Math.min(maxX, gameState.camera.x));
+            }
+
+            if (scaledHeight <= viewportHeight) {
+                gameState.camera.y = (viewportHeight - scaledHeight) / 2;
+            } else {
+                const maxY = 0;
+                const minY = -(scaledHeight - viewportHeight);
+                gameState.camera.y = Math.max(minY, Math.min(maxY, gameState.camera.y));
+            }
+
+            farmSceneElement.style.transform = `translate(${gameState.camera.x}px, ${gameState.camera.y}px) scale(${gameState.camera.zoom})`;
+        }
+
+        function zoomCamera(delta, focusPoint) {
+            const previousZoom = gameState.camera.zoom;
+            gameState.camera.zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, gameState.camera.zoom + delta));
+
+            const zoomRatio = gameState.camera.zoom / previousZoom;
+
+            if (focusPoint) {
+                gameState.camera.x = focusPoint.x - (focusPoint.x - gameState.camera.x) * zoomRatio;
+                gameState.camera.y = focusPoint.y - (focusPoint.y - gameState.camera.y) * zoomRatio;
+            } else {
+                const centerX = window.innerWidth / 2;
+                const centerY = window.innerHeight / 2;
+                gameState.camera.x = centerX - (centerX - gameState.camera.x) * zoomRatio;
+                gameState.camera.y = centerY - (centerY - gameState.camera.y) * zoomRatio;
+            }
+
+            updateCamera();
+        }
+
+        function handlePointerDown(e) {
+            if (e.button !== undefined && e.button !== 0) return;
+            if (e.target.closest('.plot') || e.target.closest('.floating-icon')) return;
+
+            gameState.isDragging = true;
+            gameState.dragPointerId = e.pointerId;
+            gameState.dragStart = {
+                x: e.clientX - gameState.camera.x,
+                y: e.clientY - gameState.camera.y
+            };
+
+            viewportElement.classList.add('dragging');
+
+            if (viewportElement.setPointerCapture) {
+                try {
+                    viewportElement.setPointerCapture(e.pointerId);
+                } catch (error) {
+                    console.warn('No se pudo capturar el puntero:', error);
+                }
+            }
+        }
+
+        function handlePointerMove(e) {
+            if (!gameState.isDragging || (gameState.dragPointerId !== null && e.pointerId !== gameState.dragPointerId)) return;
+
+            gameState.camera.x = e.clientX - gameState.dragStart.x;
+            gameState.camera.y = e.clientY - gameState.dragStart.y;
+
+            updateCamera();
+        }
+
+        function handlePointerUp(e) {
+            if (!gameState.isDragging || (gameState.dragPointerId !== null && e.pointerId !== gameState.dragPointerId)) return;
+
+            gameState.isDragging = false;
+            gameState.dragPointerId = null;
+            viewportElement.classList.remove('dragging');
+
+            if (viewportElement.releasePointerCapture) {
+                try {
+                    viewportElement.releasePointerCapture(e.pointerId);
+                } catch (error) {
+                    // Ignorar si no hay captura activa
+                }
+            }
+        }
+
+        function handleWheel(e) {
+            e.preventDefault();
+
+            const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
+            zoomCamera(delta, { x: e.clientX, y: e.clientY });
+        }
+
+        function handleKeyDown(e) {
+            const key = e.key.toLowerCase();
+
+            if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(key)) {
+                gameState.keys[key] = true;
+            }
+
+            if (key === '+' || key === '=') {
+                zoomCamera(ZOOM_STEP);
+            }
+
+            if (key === '-' || key === '_') {
+                zoomCamera(-ZOOM_STEP);
+            }
+        }
+
+        function handleKeyUp(e) {
+            const key = e.key.toLowerCase();
+
+            if (gameState.keys[key]) {
+                delete gameState.keys[key];
+            }
+        }
+
+        function handleKeyboardMovement() {
+            const keys = gameState.keys;
+            let moved = false;
+            const speed = MOVE_SPEED * (1 / gameState.camera.zoom);
+
+            if (keys['w'] || keys['arrowup']) {
+                gameState.camera.y += speed;
+                moved = true;
+            }
+
+            if (keys['s'] || keys['arrowdown']) {
+                gameState.camera.y -= speed;
+                moved = true;
+            }
+
+            if (keys['a'] || keys['arrowleft']) {
+                gameState.camera.x += speed;
+                moved = true;
+            }
+
+            if (keys['d'] || keys['arrowright']) {
+                gameState.camera.x -= speed;
+                moved = true;
+            }
+
+            if (moved) {
+                updateCamera();
+            }
+        }
+
+        function animationLoop() {
+            handleKeyboardMovement();
+            requestAnimationFrame(animationLoop);
         }
 
         function createPlot(id, x, y) {
@@ -1212,11 +1466,11 @@
         function expandFarm() {
             const farmScene = document.getElementById('farmScene');
             const currentPlots = gameState.plots.length;
-            
+
             const newPositions = [
-                { x: 300, y: 600 },
-                { x: 480, y: 660 },
-                { x: 660, y: 720 }
+                { x: 2900, y: 2650 },
+                { x: 3150, y: 2750 },
+                { x: 3400, y: 2850 }
             ];
             
             newPositions.forEach((pos, index) => {
