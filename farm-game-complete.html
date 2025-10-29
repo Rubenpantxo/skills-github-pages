@@ -129,6 +129,41 @@
             background: #6b5940;
         }
 
+        .plot.locked .plot-ground {
+            background: #3a3a3a;
+            border-color: #555;
+            opacity: 0.6;
+        }
+
+        .plot.needs-plowing .plot-ground {
+            background: #a89878;
+            border-color: #8b7355;
+        }
+
+        .plot.plowed .plot-ground {
+            background: #8b7355;
+            border-color: #6d5a45;
+        }
+
+        .plot.needs-watering .plot-ground {
+            background: #9d8563;
+            border-color: #7d6543;
+        }
+
+        .plot.watered .plot-ground {
+            background: #7d6543;
+            border-color: #5d4433;
+        }
+
+        .lock-icon {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 40px;
+            opacity: 0.8;
+        }
+
         .crop-visual {
             position: absolute;
             top: -40px;
@@ -599,6 +634,85 @@
             animation: harvestAnimation 1s ease forwards;
         }
 
+        .plot-context-menu {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.95);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            min-width: 200px;
+            z-index: 1000;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .plot-context-menu button {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            margin: 5px 0;
+            background: #333;
+            color: white;
+            border: 1px solid #555;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+
+        .plot-context-menu button:hover {
+            background: #444;
+            border-color: #4fb3d4;
+        }
+
+        .plot-context-menu button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .plot-context-menu .close-context {
+            background: #cc0000;
+            margin-top: 10px;
+        }
+
+        .plot-context-menu .close-context:hover {
+            background: #ff0000;
+        }
+
+        .watering-indicator {
+            position: absolute;
+            top: -30px;
+            right: 10px;
+            background: rgba(30, 144, 255, 0.9);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            font-weight: bold;
+            animation: pulse 2s infinite;
+        }
+
+        .plowing-progress {
+            position: absolute;
+            bottom: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            height: 8px;
+            background: #333;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .plowing-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff8c00, #ffa500);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
         @media (max-width: 768px) {
             .crops-grid {
                 grid-template-columns: repeat(2, 1fr);
@@ -623,7 +737,7 @@
     </button>
 
     <div class="top-message" id="topMessage">
-        Explora Cabanillas arrastrando el mapa y usa el botón de tienda en la esquina superior izquierda para comprar cultivos.
+        Haz clic en las parcelas para comprar, arar, plantar, regar y cosechar. Arrastra el mapa para explorar Cabanillas.
     </div>
 
     <div class="map-viewport" id="mapViewport">
@@ -991,7 +1105,10 @@
                     coinCost: 0,
                     growthTime: 15000,
                     seedReward: 2,
-                    coinReward: 0
+                    coinReward: 0,
+                    plowingTime: 2000,
+                    wateringFrequency: 7000,
+                    wateringTime: 1500
                 },
                 corn: {
                     name: 'Maíz',
@@ -1000,7 +1117,10 @@
                     coinCost: 1,
                     growthTime: 20000,
                     seedReward: 3,
-                    coinReward: 1
+                    coinReward: 1,
+                    plowingTime: 2500,
+                    wateringFrequency: 8000,
+                    wateringTime: 2000
                 },
                 potato: {
                     name: 'Patata',
@@ -1009,7 +1129,10 @@
                     coinCost: 1,
                     growthTime: 18000,
                     seedReward: 3,
-                    coinReward: 1
+                    coinReward: 1,
+                    plowingTime: 2200,
+                    wateringFrequency: 6000,
+                    wateringTime: 1800
                 },
                 tomato: {
                     name: 'Tomate',
@@ -1018,7 +1141,10 @@
                     coinCost: 25,
                     growthTime: 30000,
                     seedReward: 5,
-                    coinReward: 30
+                    coinReward: 30,
+                    plowingTime: 3000,
+                    wateringFrequency: 10000,
+                    wateringTime: 2500
                 },
                 strawberry: {
                     name: 'Fresa',
@@ -1027,7 +1153,10 @@
                     coinCost: 25,
                     growthTime: 28000,
                     seedReward: 5,
-                    coinReward: 30
+                    coinReward: 30,
+                    plowingTime: 2800,
+                    wateringFrequency: 9000,
+                    wateringTime: 2300
                 },
                 pumpkin: {
                     name: 'Calabaza',
@@ -1036,7 +1165,10 @@
                     coinCost: 50,
                     growthTime: 40000,
                     seedReward: 8,
-                    coinReward: 60
+                    coinReward: 60,
+                    plowingTime: 4000,
+                    wateringFrequency: 15000,
+                    wateringTime: 3000
                 }
             },
             upgrades: {
@@ -1067,9 +1199,22 @@
             }
         };
 
+        const PLOT_COST = 50;
+        const PLOT_SELL_VALUE = 30;
+
+        const PLOT_STATES = {
+            LOCKED: 'locked',
+            NEEDS_PLOWING: 'needs-plowing',
+            PLOWED: 'plowed',
+            PLANTED: 'planted',
+            NEEDS_WATERING: 'needs-watering',
+            WATERED: 'watered',
+            READY: 'ready'
+        };
+
         const gameState = {
             seeds: 1,
-            coins: 0,
+            coins: 100,
             plots: [],
             selectedCrop: null,
             plantingMode: false,
@@ -1088,7 +1233,7 @@
             setupEventListeners();
             updateResourceDisplay();
             loadGameState();
-            updateTopMessage('Explora Cabanillas arrastrando el mapa y usa la tienda para conseguir nuevos cultivos.');
+            updateTopMessage('Haz clic en las parcelas para gestionar tu granja. Cada cultivo requiere arado y riego con tiempos diferentes.');
         });
 
         function initializePlots() {
@@ -1096,15 +1241,26 @@
             INITIAL_PLOT_POSITIONS.forEach((pos, index) => {
                 const plot = createPlot(index, pos.x, pos.y);
                 farmScene.appendChild(plot);
+
+                const isInitiallyUnlocked = index < 3;
+
                 gameState.plots.push({
                     id: index,
                     element: plot,
+                    state: isInitiallyUnlocked ? PLOT_STATES.NEEDS_PLOWING : PLOT_STATES.LOCKED,
+                    owned: isInitiallyUnlocked,
                     crop: null,
                     growthProgress: 0,
                     growthInterval: null,
+                    wateringInterval: null,
+                    plowingProgress: 0,
                     startTime: null,
+                    lastWateringTime: null,
+                    needsWatering: false,
                     ready: false
                 });
+
+                updatePlotVisual(index);
             });
         }
 
@@ -1250,71 +1406,258 @@
 
         function handlePlotClick(plotId) {
             const plot = gameState.plots[plotId];
-            
-            if (gameState.plantingMode && !plot.crop) {
+
+            closeAllContextMenus();
+
+            if (gameState.plantingMode && plot.state === PLOT_STATES.PLOWED) {
                 plantCrop(plotId);
+            } else {
+                showPlotContextMenu(plotId);
             }
-            else if (plot.ready && plot.crop) {
-                harvestCrop(plotId);
+        }
+
+        function closeAllContextMenus() {
+            document.querySelectorAll('.plot-context-menu').forEach(menu => menu.remove());
+        }
+
+        function showPlotContextMenu(plotId) {
+            const plot = gameState.plots[plotId];
+            closeAllContextMenus();
+
+            const menu = document.createElement('div');
+            menu.className = 'plot-context-menu';
+
+            if (plot.state === PLOT_STATES.LOCKED) {
+                menu.innerHTML = `
+                    <button onclick="buyPlot(${plotId})">🔓 Comprar Parcela (${PLOT_COST} 💰)</button>
+                    <button class="close-context" onclick="closeAllContextMenus()">Cerrar</button>
+                `;
+            } else if (plot.state === PLOT_STATES.NEEDS_PLOWING) {
+                menu.innerHTML = `
+                    <button onclick="plowPlot(${plotId})">⛏️ Arar Parcela</button>
+                    <button onclick="sellPlot(${plotId})">💰 Vender Parcela (${PLOT_SELL_VALUE} 💰)</button>
+                    <button class="close-context" onclick="closeAllContextMenus()">Cerrar</button>
+                `;
+            } else if (plot.state === PLOT_STATES.PLOWED) {
+                menu.innerHTML = `
+                    <button onclick="openShopForPlanting(${plotId})">🌱 Plantar</button>
+                    <button onclick="sellPlot(${plotId})">💰 Vender Parcela (${PLOT_SELL_VALUE} 💰)</button>
+                    <button class="close-context" onclick="closeAllContextMenus()">Cerrar</button>
+                `;
+            } else if (plot.state === PLOT_STATES.PLANTED || plot.state === PLOT_STATES.NEEDS_WATERING || plot.state === PLOT_STATES.WATERED) {
+                const waterBtn = plot.needsWatering ?
+                    `<button onclick="waterPlot(${plotId})">💧 Regar</button>` :
+                    `<button disabled>💧 No Necesita Riego</button>`;
+                menu.innerHTML = `
+                    <button onclick="showPlotInfo(${plotId})">📊 Ver Info</button>
+                    ${waterBtn}
+                    <button class="close-context" onclick="closeAllContextMenus()">Cerrar</button>
+                `;
+            } else if (plot.state === PLOT_STATES.READY) {
+                menu.innerHTML = `
+                    <button onclick="harvestCrop(${plotId})">✂️ Cosechar</button>
+                    <button class="close-context" onclick="closeAllContextMenus()">Cerrar</button>
+                `;
             }
-            else if (plot.crop && !plot.ready) {
-                showPlotInfo(plotId);
+
+            plot.element.appendChild(menu);
+        }
+
+        function openShopForPlanting(plotId) {
+            closeAllContextMenus();
+            gameState.selectedPlotId = plotId;
+            openShop();
+            updateTopMessage('Selecciona un cultivo para plantar en esta parcela.');
+        }
+
+        function buyPlot(plotId) {
+            const plot = gameState.plots[plotId];
+
+            if (gameState.coins < PLOT_COST) {
+                updateTopMessage('No tienes suficientes monedas para comprar esta parcela.');
+                return;
             }
+
+            gameState.coins -= PLOT_COST;
+            plot.owned = true;
+            plot.state = PLOT_STATES.NEEDS_PLOWING;
+            updateResourceDisplay();
+            updatePlotVisual(plotId);
+            closeAllContextMenus();
+            updateTopMessage('¡Parcela comprada! Ahora debes ararla antes de plantar.');
+        }
+
+        function sellPlot(plotId) {
+            const plot = gameState.plots[plotId];
+
+            if (plot.crop) {
+                updateTopMessage('No puedes vender una parcela con cultivos plantados.');
+                return;
+            }
+
+            gameState.coins += PLOT_SELL_VALUE;
+            plot.owned = false;
+            plot.state = PLOT_STATES.LOCKED;
+            updateResourceDisplay();
+            updatePlotVisual(plotId);
+            closeAllContextMenus();
+            updateTopMessage('Parcela vendida.');
+        }
+
+        function plowPlot(plotId) {
+            const plot = gameState.plots[plotId];
+            closeAllContextMenus();
+
+            const plowingTime = 3000;
+            plot.plowingProgress = 0;
+
+            const progressBar = document.createElement('div');
+            progressBar.className = 'plowing-progress';
+            const progressFill = document.createElement('div');
+            progressFill.className = 'plowing-progress-fill';
+            progressBar.appendChild(progressFill);
+            plot.element.appendChild(progressBar);
+
+            const startTime = Date.now();
+            const plowInterval = setInterval(() => {
+                const elapsed = Date.now() - startTime;
+                plot.plowingProgress = Math.min((elapsed / plowingTime) * 100, 100);
+                progressFill.style.width = `${plot.plowingProgress}%`;
+
+                if (plot.plowingProgress >= 100) {
+                    clearInterval(plowInterval);
+                    progressBar.remove();
+                    plot.state = PLOT_STATES.PLOWED;
+                    updatePlotVisual(plotId);
+                    updateTopMessage('¡Parcela arada! Ahora puedes plantar cultivos.');
+                }
+            }, 100);
+        }
+
+        function waterPlot(plotId) {
+            const plot = gameState.plots[plotId];
+            closeAllContextMenus();
+
+            if (!plot.needsWatering || !plot.crop) {
+                return;
+            }
+
+            const crop = GAME_CONFIG.crops[plot.crop];
+            plot.needsWatering = false;
+            plot.lastWateringTime = Date.now();
+            plot.state = PLOT_STATES.WATERED;
+            updatePlotVisual(plotId);
+
+            const waterIndicator = plot.element.querySelector('.watering-indicator');
+            if (waterIndicator) {
+                waterIndicator.remove();
+            }
+
+            updateTopMessage('Parcela regada. El cultivo está creciendo bien.');
         }
 
         function plantCrop(plotId) {
             const plot = gameState.plots[plotId];
             const cropType = gameState.selectedCrop;
             const crop = GAME_CONFIG.crops[cropType];
-            
+
             gameState.seeds -= crop.seedCost;
             gameState.coins -= crop.coinCost;
             updateResourceDisplay();
-            
+
             plot.crop = cropType;
             plot.growthProgress = 0;
             plot.ready = false;
             plot.startTime = Date.now();
-            
-            plot.element.classList.add('planted');
-            
+            plot.lastWateringTime = Date.now();
+            plot.needsWatering = false;
+            plot.state = PLOT_STATES.PLANTED;
+
+            updatePlotVisual(plotId);
+
             const cropVisual = document.createElement('div');
             cropVisual.className = 'crop-visual';
             cropVisual.textContent = crop.icon;
             plot.element.appendChild(cropVisual);
-            
-            if (gameState.upgrades.watering) {
-                const toolIcon = document.createElement('div');
-                toolIcon.className = 'tool-icon';
-                toolIcon.textContent = '💧';
-                plot.element.appendChild(toolIcon);
-            }
-            
+
             startGrowth(plotId);
-            
+            startWateringCycle(plotId);
+
             gameState.plantingMode = false;
             gameState.selectedCrop = null;
             hideCancelButton();
-            
-            updateTopMessage('Selecciona tus cultivos para obtener más información.');
+
+            updateTopMessage('Cultivo plantado. Recuerda regarlo cuando lo necesite.');
+        }
+
+        function updatePlotVisual(plotId) {
+            const plot = gameState.plots[plotId];
+            plot.element.className = 'plot';
+
+            plot.element.classList.add(plot.state);
+
+            const ground = plot.element.querySelector('.plot-ground');
+            if (ground) {
+                ground.innerHTML = '';
+            }
+
+            if (plot.state === PLOT_STATES.LOCKED) {
+                const lockIcon = document.createElement('div');
+                lockIcon.className = 'lock-icon';
+                lockIcon.textContent = '🔒';
+                if (ground) ground.appendChild(lockIcon);
+            }
+        }
+
+        function startWateringCycle(plotId) {
+            const plot = gameState.plots[plotId];
+            const crop = GAME_CONFIG.crops[plot.crop];
+
+            if (plot.wateringInterval) {
+                clearInterval(plot.wateringInterval);
+            }
+
+            plot.wateringInterval = setInterval(() => {
+                const timeSinceWatering = Date.now() - plot.lastWateringTime;
+
+                if (timeSinceWatering >= crop.wateringFrequency) {
+                    plot.needsWatering = true;
+                    plot.state = PLOT_STATES.NEEDS_WATERING;
+                    updatePlotVisual(plotId);
+
+                    const existingIndicator = plot.element.querySelector('.watering-indicator');
+                    if (!existingIndicator) {
+                        const waterIndicator = document.createElement('div');
+                        waterIndicator.className = 'watering-indicator';
+                        waterIndicator.textContent = '💧 Necesita Riego';
+                        plot.element.appendChild(waterIndicator);
+                    }
+                }
+            }, 1000);
         }
 
         function startGrowth(plotId) {
             const plot = gameState.plots[plotId];
             const crop = GAME_CONFIG.crops[plot.crop];
-            
+
             let growthTime = crop.growthTime / gameState.growthSpeedMultiplier;
-            
+
             if (gameState.upgrades.watering) {
                 growthTime *= 0.7;
             }
-            
+
             const updateInterval = 100;
-            
+
             plot.growthInterval = setInterval(() => {
                 const elapsed = Date.now() - plot.startTime;
-                plot.growthProgress = Math.min((elapsed / growthTime) * 100, 100);
-                
+                let effectiveElapsed = elapsed;
+
+                if (plot.needsWatering) {
+                    effectiveElapsed = elapsed * 0.3;
+                }
+
+                plot.growthProgress = Math.min((effectiveElapsed / growthTime) * 100, 100);
+
                 const infoPanel = document.getElementById('infoPanel');
                 if (infoPanel.style.display !== 'none') {
                     const currentPlotId = parseInt(infoPanel.dataset.plotId);
@@ -1322,9 +1665,12 @@
                         document.getElementById('progressBar').style.width = `${plot.growthProgress}%`;
                     }
                 }
-                
+
                 if (plot.growthProgress >= 100) {
                     clearInterval(plot.growthInterval);
+                    if (plot.wateringInterval) {
+                        clearInterval(plot.wateringInterval);
+                    }
                     finishGrowth(plotId);
                 }
             }, updateInterval);
@@ -1333,89 +1679,116 @@
         function finishGrowth(plotId) {
             const plot = gameState.plots[plotId];
             const crop = GAME_CONFIG.crops[plot.crop];
-            
+
             plot.ready = true;
-            
+            plot.state = PLOT_STATES.READY;
+            updatePlotVisual(plotId);
+
+            const waterIndicator = plot.element.querySelector('.watering-indicator');
+            if (waterIndicator) {
+                waterIndicator.remove();
+            }
+
             const harvestIcon = document.createElement('div');
             harvestIcon.className = 'floating-icon harvest-ready';
-            
-            const rewardText = crop.seedReward > 0 
-                ? `${crop.seedReward} SEMILLAS` 
+
+            const rewardText = crop.seedReward > 0
+                ? `${crop.seedReward} SEMILLAS`
                 : `${crop.coinReward} MONEDAS`;
-            
+
             harvestIcon.innerHTML = `
                 <span class="big-text">${rewardText} LISTAS</span>
                 <span class="small-text">Clic para Cosechar</span>
             `;
-            
+
             plot.element.appendChild(harvestIcon);
-            
+
             updateTopMessage('¡Tus cultivos están listos para cosechar!');
         }
 
         function harvestCrop(plotId) {
             const plot = gameState.plots[plotId];
             const crop = GAME_CONFIG.crops[plot.crop];
-            
+
+            closeAllContextMenus();
+
             gameState.seeds += crop.seedReward;
             gameState.coins += crop.coinReward;
             updateResourceDisplay();
-            
+
             const cropVisual = plot.element.querySelector('.crop-visual');
             if (cropVisual) {
                 cropVisual.classList.add('harvest-animation');
             }
-            
+
             const rewardIcon = document.createElement('div');
             rewardIcon.className = crop.seedReward > 0 ? 'floating-icon' : 'floating-icon coins';
             rewardIcon.textContent = crop.seedReward > 0 ? `+${crop.seedReward} 🌱` : `+${crop.coinReward} 💰`;
             rewardIcon.style.top = '-100px';
             plot.element.appendChild(rewardIcon);
-            
+
             setTimeout(() => {
                 rewardIcon.style.animation = 'harvestAnimation 1s ease forwards';
                 setTimeout(() => rewardIcon.remove(), 1000);
             }, 100);
-            
+
             setTimeout(() => {
                 resetPlot(plotId);
             }, 500);
-            
-            updateTopMessage('¡Cosecha exitosa! Continúa cultivando tu granja. Ahorra monedas para comprar mejoras.');
+
+            updateTopMessage('¡Cosecha exitosa! Ahora debes arar la parcela de nuevo para plantar.');
         }
 
         function resetPlot(plotId) {
             const plot = gameState.plots[plotId];
-            
+
             plot.crop = null;
             plot.growthProgress = 0;
             plot.ready = false;
             plot.startTime = null;
-            
+            plot.lastWateringTime = null;
+            plot.needsWatering = false;
+            plot.state = PLOT_STATES.NEEDS_PLOWING;
+
             if (plot.growthInterval) {
                 clearInterval(plot.growthInterval);
                 plot.growthInterval = null;
             }
-            
-            plot.element.classList.remove('planted');
+
+            if (plot.wateringInterval) {
+                clearInterval(plot.wateringInterval);
+                plot.wateringInterval = null;
+            }
+
             plot.element.innerHTML = '<div class="plot-ground"></div>';
+            updatePlotVisual(plotId);
         }
 
         function showPlotInfo(plotId) {
             const plot = gameState.plots[plotId];
             const crop = GAME_CONFIG.crops[plot.crop];
-            
+
+            closeAllContextMenus();
+
             const infoPanel = document.getElementById('infoPanel');
             infoPanel.style.display = 'block';
             infoPanel.dataset.plotId = plotId;
-            
+
             document.getElementById('cropName').textContent = crop.name;
-            document.getElementById('cropStatus').textContent = plot.ready ? 'Listo' : 'Creciendo';
+
+            let statusText = 'Creciendo';
+            if (plot.ready) {
+                statusText = 'Listo';
+            } else if (plot.needsWatering) {
+                statusText = 'Necesita Riego';
+            }
+
+            document.getElementById('cropStatus').textContent = statusText;
             document.getElementById('progressBar').style.width = `${plot.growthProgress}%`;
-            
+
             document.getElementById('backButton').style.display = 'block';
-            
-            updateTopMessage('Espera a que tus cultivos crezcan...');
+
+            updateTopMessage('Espera a que tus cultivos crezcan y riégalos cuando lo necesiten.');
         }
 
         function hidePlotInfo() {
@@ -1476,15 +1849,22 @@
                 gameState.plots.push({
                     id: newId,
                     element: plot,
+                    state: PLOT_STATES.LOCKED,
+                    owned: false,
                     crop: null,
                     growthProgress: 0,
                     growthInterval: null,
+                    wateringInterval: null,
+                    plowingProgress: 0,
                     startTime: null,
+                    lastWateringTime: null,
+                    needsWatering: false,
                     ready: false
                 });
+                updatePlotVisual(newId);
             });
 
-            updateTopMessage('¡Granja expandida! Ahora tienes más parcelas para cultivar.');
+            updateTopMessage('¡Granja expandida! Ahora tienes más parcelas disponibles para comprar.');
         }
 
         function ensurePlotsForSave(savedPlots) {
@@ -1509,10 +1889,16 @@
                         gameState.plots[savedPlot.id] = {
                             id: savedPlot.id,
                             element: plotElement,
+                            state: savedPlot.state || PLOT_STATES.LOCKED,
+                            owned: savedPlot.owned || false,
                             crop: null,
                             growthProgress: 0,
                             growthInterval: null,
+                            wateringInterval: null,
+                            plowingProgress: 0,
                             startTime: null,
+                            lastWateringTime: null,
+                            needsWatering: false,
                             ready: false
                         };
                     }
@@ -1549,23 +1935,27 @@
                 upgrades: gameState.upgrades,
                 plots: gameState.plots.map(plot => ({
                     id: plot.id,
+                    state: plot.state,
+                    owned: plot.owned,
                     crop: plot.crop,
                     growthProgress: plot.growthProgress,
                     ready: plot.ready,
-                    startTime: plot.startTime
+                    startTime: plot.startTime,
+                    lastWateringTime: plot.lastWateringTime,
+                    needsWatering: plot.needsWatering
                 }))
             };
-            
+
             localStorage.setItem('farmGameSave', JSON.stringify(saveData));
         }
 
         function loadGameState() {
             const savedData = localStorage.getItem('farmGameSave');
-            
+
             if (savedData) {
                 const data = JSON.parse(savedData);
-                gameState.seeds = data.seeds;
-                gameState.coins = data.coins;
+                gameState.seeds = data.seeds || gameState.seeds;
+                gameState.coins = data.coins || gameState.coins;
                 gameState.upgrades = {
                     ...gameState.upgrades,
                     ...data.upgrades
@@ -1574,25 +1964,33 @@
                 ensurePlotsForSave(data.plots);
 
                 data.plots.forEach(savedPlot => {
+                    const plot = gameState.plots[savedPlot.id];
+                    if (!plot) {
+                        return;
+                    }
+
+                    plot.state = savedPlot.state || plot.state;
+                    plot.owned = savedPlot.owned !== undefined ? savedPlot.owned : plot.owned;
+                    plot.needsWatering = savedPlot.needsWatering || false;
+                    plot.lastWateringTime = savedPlot.lastWateringTime || null;
+
+                    updatePlotVisual(savedPlot.id);
+
                     if (savedPlot.crop) {
-                        const plot = gameState.plots[savedPlot.id];
-                        if (!plot) {
-                            return;
-                        }
                         plot.crop = savedPlot.crop;
                         plot.ready = savedPlot.ready;
                         plot.startTime = savedPlot.startTime;
 
                         const crop = GAME_CONFIG.crops[savedPlot.crop];
-                        
-                        plot.element.classList.add('planted');
+
                         const cropVisual = document.createElement('div');
                         cropVisual.className = 'crop-visual';
                         cropVisual.textContent = crop.icon;
                         plot.element.appendChild(cropVisual);
-                        
+
                         if (!savedPlot.ready) {
                             startGrowth(savedPlot.id);
+                            startWateringCycle(savedPlot.id);
                         } else {
                             finishGrowth(savedPlot.id);
                         }
